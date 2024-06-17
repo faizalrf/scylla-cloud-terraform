@@ -1,0 +1,20 @@
+*.tfstate
+*.tfstate.backup
+*.tfstate.*
+.terraform.lock.hcl
+# Local .terraform directories
+.terraform/*
+
+#  Ignore variables files
+*.auto.tfvars
+
+#  Ignore override files
+*.tfoverride
+
+#  Ignore environment-specific files
+.envrc
+.env
+#  Ignore CLI configuration files
+.terraformrc
+scylla-inventory.ini
+terraform.rc.terraform/
