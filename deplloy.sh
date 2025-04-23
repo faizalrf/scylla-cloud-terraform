@@ -18,5 +18,7 @@ if [ -z "$TF_VAR_scylla_api_token" ]; then
 else
     echo "Proceed to execute 'terraform' script..."
     echo
+    terraform init
+    terraform apply -auto-approve
     exit 0
 fi

@@ -1,7 +1,8 @@
 terraform {
   required_providers {
     scylladbcloud = {
-      source = "registry.terraform.io/scylladb/scylladbcloud"
+      source = "scylladb/scylladbcloud"
+      version = "1.8.1"
     }
   }
 }
@@ -17,12 +18,13 @@ provider "scylladbcloud" {
 
 # Create a cluster on AWS cloud.
 resource "scylladbcloud_cluster" "test_cluster" {
-  name               = "my-test-cluster"
-  cloud              = "GCP"
+  name               = trim(var.scylla_cluster_name, " ")
+  cloud              = "AWS"
   region             = trim(var.region, " ")
   node_count         = 3
-  node_type          = "n2-highmem-4"
-  enable_vpc_peering = false
+  node_type          = trim(var.node_type, " ")
+  scylla_version     = trim(var.scylla_version, " ")
+  enable_vpc_peering = true
   enable_dns         = true
 }
 
