@@ -6,6 +6,8 @@
 .terraform/*
 ansible/.terraform/*
 ansible/virtual*
+ansible/inventory.ini
+ansible/transfer_loader_scripts.yml
 
 #  Ignore variables files
 *.auto.tfvars
