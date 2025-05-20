@@ -24,12 +24,9 @@ fi
 
 python generate_tfvars.py
 
-cd loaders
+cd ansible
 terraform init
 terraform apply --auto-approve
 
-python generate_inventory.py
-
-#cd stress_inventory
-#python generate_loader_nodes_scripts.py
+python generate_loader_nodes_scripts.py
 

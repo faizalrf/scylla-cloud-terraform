@@ -32,6 +32,13 @@ resource "aws_security_group" "loader_sg" {
   description = "Allow outbound CQL and shard-aware access to Scylla Cloud"
   vpc_id      = var.loader_vpc
 
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   egress {
     from_port   = 9042
     to_port     = 9042

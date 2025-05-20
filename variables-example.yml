@@ -1,0 +1,34 @@
+scylla_api_token: "Your-Scylla-API-Token"
+scylla_account_id: 929
+cluster_name: "aws-scylla-cloud-x"
+scylla_version: "2025.1.2"
+cloud: "aws"
+key_name: "my-loader-key" # This key will be created on AWS, name it as you like
+path_to_key: "~/.ssh/id_ed25519.pub"
+path_to_private_key: "~/.ssh/id_ed25519"
+regions:
+  ap-southeast-1:
+    cidr: "10.2.0.0/16"
+    nodes: 3
+    scylla_node_type: "i4i.xlarge"
+    scale_nodes: 3
+    scylla_scale_node_type: "i4i.xlarge"
+    loader_vpc: "vpc-014039196d4026a98"
+    loaders: 3
+    loaders_type: "i4i.2xlarge"
+scylla_params:
+  enable_tablets: true
+stress_setup:
+  stress_profile_name: "key_value"
+  number_of_loader_threads: 150
+  loader_throttle: 100000
+  number_of_loader_instances: 1
+  number_of_stress_threads: 150
+  stress_throttle: 100000
+  number_of_stress_instances: 1
+  consistency_level: "LOCAL_QUORUM"
+  stress_duration_minutes: "60m"
+  desired_row_count: 0
+  desired_cluster_size: 1
+  ratio: "1:3"
+  select_query: "select"

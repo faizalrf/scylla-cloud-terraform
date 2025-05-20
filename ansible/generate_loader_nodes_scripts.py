@@ -239,7 +239,7 @@ def get_instance_info_gcp(instance):
 
 def generate_stress_profiles(data_dump, template_file_path):
     for data in data_dump:
-        output_directory = f"./files/{data['loader_zone']}/{data['loader_name']}"  # Directory to save the generated scripts
+        output_directory = f"./{data['loader_zone']}/{data['loader_name']}"  # Directory to save the generated scripts
 
         # Ensure the output directory exists
         os.makedirs(output_directory, exist_ok=True)
@@ -365,14 +365,14 @@ def generate_stresstest_scripts(data, output_directory, yaml_script_filename, su
         script_file.write(f"chmod 750 stress_log_{profile_instance + 1}.sh\n")
 
 def generate_inventory():
-    output = subprocess.check_output(["terraform", "output", "-json"], cwd="../")
+    output = subprocess.check_output(["terraform", "output", "-json"])
     tf_output = json.loads(output)
 
     private_ips = tf_output["loader_private_ips"]["value"]
     public_ips = tf_output["loader_public_ips"]["value"]
     instance_names = tf_output["loader_instance_names"]["value"]
 
-    with open("files/inventory.ini", "w") as f:
+    with open("inventory.ini", "w") as f:
         f.write("[loaders]\n")
         for name, ip, pub_ip in zip(instance_names, private_ips, public_ips):
             f.write(f"{ip} ansible_host={pub_ip} ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/id_ed25519\n")
@@ -385,7 +385,7 @@ def main(config):
     region_name = next(iter(config['regions']))
 
     # Fetch cluster_id and CQL credentials from Terraform output in parent dir
-    tf_output = json.loads(subprocess.check_output(["terraform", "output", "-json"], cwd="../../"))
+    tf_output = json.loads(subprocess.check_output(["terraform", "output", "-json"], cwd="../"))
     # Extract CQL user credentials from Terraform output
     scylla_cql_username = tf_output["scylla_cql_username"]["value"]
     scylla_cql_password = tf_output["scylla_cql_password"]["value"]
@@ -393,7 +393,7 @@ def main(config):
     scylla_nodes = [{"private_ip": ip} for ip in scylla_private_ips]
 
     # --- Fetch loader_nodes from Terraform output ---
-    tf_output = json.loads(subprocess.check_output(["terraform", "output", "-json"], cwd="../"))
+    tf_output = json.loads(subprocess.check_output(["terraform", "output", "-json"], cwd="./"))
     loader_names = tf_output["loader_instance_names"]["value"]
     loader_private_ips = tf_output["loader_private_ips"]["value"]
     loader_public_ips = tf_output["loader_public_ips"]["value"]
