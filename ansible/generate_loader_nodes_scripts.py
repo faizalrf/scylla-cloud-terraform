@@ -312,7 +312,7 @@ def generate_loader_scripts(data, output_directory, yaml_script_filename, suffix
         user = data['scylla_cql_username']
         password = data['scylla_cql_password']
         script_text = f"nohup cassandra-stress user profile={yaml_script_filename} cl={consistency_level} n={population_steps} "\
-                        f"'ops(insert=1)' -mode native cql3 user={user} password={password} auth=true -rate threads={threads} {loader_throttle} "\
+                        f"'ops(insert=1)' -mode native cql3 user={user} password={password} -rate threads={threads} {loader_throttle} "\
                         f"-log interval=10 -node {scylla_private_ip_str}> $log_file 2>&1 &\n"
         
         script_file.write(script_text)
@@ -357,7 +357,7 @@ def generate_stresstest_scripts(data, output_directory, yaml_script_filename, su
         password = data['scylla_cql_password']
 
         script_text = f"nohup cassandra-stress user profile={yaml_script_filename} cl={consistency_level} duration={stress_duration} "\
-                        f"'ops(insert={writes},{stress_query}={reads})' -mode native cql3 user={user} password={password} auth=true -rate threads={threads} {stress_throttle} "\
+                        f"'ops(insert={writes},{stress_query}={reads})' -mode native cql3 user={user} password={password} -rate threads={threads} {stress_throttle} "\
                         f"-log interval=10 -node {scylla_private_ip_str}> $log_file 2>&1 &\n\n"
         
         script_file.write(script_text)

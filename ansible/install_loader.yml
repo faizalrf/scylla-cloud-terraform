@@ -1,0 +1,34 @@
+- name: Install loader tools
+  hosts: loaders
+  gather_facts: false
+  become: yes
+  vars_files:
+    - ../variables.yml  # Explicitly include the variables.yml file
+  tasks:
+    - name: Disable the Scylla service to on the loader nodes
+      ansible.builtin.systemd:
+        name: scylla-server
+        enabled: no
+
+    - name: Extract Scylla major version (supporting "." or "-")
+      set_fact:
+        scylla_major_version: "{{ (scylla_version | regex_replace('-', '.') | split('.') | first) | int }}"
+
+    - name: Install OpenJDK 17
+      apt:
+        name: openjdk-17-jdk
+        state: present
+        update_cache: yes
+
+    - name: "Install scylla-enterprise-tools for Scylla {{ scylla_version }}"
+      apt: 
+        name: scylla-enterprise-tools
+        state: latest
+        update_cache: yes
+      when: scylla_major_version | int < 2025
+
+    - name: "Install scylla-tools for Scylla {{ scylla_version }}"
+      apt:
+        name: scylla-tools
+        state: latest
+      when: scylla_major_version | int >= 2025

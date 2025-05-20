@@ -1,6 +1,6 @@
 ---
 - name: Kill and verify the cassandra-stress and java processes on remote hosts
-  hosts: aws_loader
+  hosts: loaders
   become: yes  # Escalate privileges to root if necessary
   gather_facts: no
   tasks:
