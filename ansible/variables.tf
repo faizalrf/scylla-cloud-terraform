@@ -1,0 +1,9 @@
+variable "cloud" {}
+variable "scylla_version" {}
+variable "region" {}
+variable "loader_vpc" {}
+variable "loaders" {}
+variable "loaders_type" {}
+variable "key_name" {}
+variable "path_to_key" {}
+variable "path_to_private_key" {}

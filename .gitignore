@@ -4,6 +4,8 @@
 .terraform.lock.hcl
 # Local .terraform directories
 .terraform/*
+ansible/.terraform/*
+ansible/virtual*
 
 #  Ignore variables files
 *.auto.tfvars
@@ -18,3 +20,6 @@
 .terraformrc
 scylla-inventory.ini
 terraform.rc.terraform/
+variables.yml
+terraform.auto.tfvars.json
+.DS_Store

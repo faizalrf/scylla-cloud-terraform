@@ -19,6 +19,17 @@ else
     echo "Proceed to execute 'terraform' script..."
     echo
     terraform init
-    terraform apply -auto-approve
-    exit 0
+    terraform apply --auto-approve
 fi
+
+python generate_tfvars.py
+
+cd loaders
+terraform init
+terraform apply --auto-approve
+
+python generate_inventory.py
+
+#cd stress_inventory
+#python generate_loader_nodes_scripts.py
+

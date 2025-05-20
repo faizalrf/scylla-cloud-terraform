@@ -1,0 +1,41 @@
+keyspace: cyclist
+
+keyspace_definition: |
+  CREATE KEYSPACE cyclist WITH replication = {'class': 'NetworkTopologyStrategy', 'replication_factor': 3};
+
+table: cyclist_category
+
+table_definition: |
+  CREATE TABLE cyclist.cyclist_category (
+    category text,
+    points int,
+    id uuid,
+    description text,
+    lastname text,
+    PRIMARY KEY (category, points)
+   ) WITH bloom_filter_fp_chance = 0.01
+    AND caching = {'keys': 'ALL', 'rows_per_partition': 'ALL'}
+    AND comment = ''
+    AND compaction = {'class': 'IncrementalCompactionStrategy', 'min_threshold': '4'}
+    AND compression = {};
+
+columnspec:
+  - name: category
+    size: uniform(100..200)
+    population: seq($start..$end)
+  - name: points
+    population: uniform(1..10000000)
+  - name: description
+    size: uniform(200..300)
+  - name: id
+  - name: lastname
+    size: uniform(50..100)
+
+insert:
+  partitions: fixed(1)
+  batchtype: UNLOGGED
+
+queries:
+  simple:
+    cql: select * from cyclist_category where category = ? and points = ?
+    fields: samerow
