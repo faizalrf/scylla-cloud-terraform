@@ -49,7 +49,6 @@ def get_current_node_count(api_token, account_id, cluster_id):
         "Trace-Id": "python-script"
     }
     response = requests.get(url, headers=headers)
-    print(json.dumps(response.json(), indent=2))
     response.raise_for_status()
     data = response.json().get("data", {})
     nodes = data.get("nodes", [])
