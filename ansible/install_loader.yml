@@ -3,12 +3,16 @@
   gather_facts: false
   become: yes
   vars_files:
-    - ../variables.yml  # Explicitly include the variables.yml file
+    - ../../../variables.yml  # Explicitly include the variables.yml file
   tasks:
     - name: Disable the Scylla service to on the loader nodes
       ansible.builtin.systemd:
         name: scylla-server
         enabled: no
+
+    - name: Set scylla_version for local use
+      set_fact:
+        scylla_version: "{{ clusters[cluster_id].scylla_version }}"
 
     - name: Extract Scylla major version (supporting "." or "-")
       set_fact:

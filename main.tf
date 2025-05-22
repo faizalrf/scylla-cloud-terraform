@@ -50,10 +50,6 @@ output "scylla_cql_password" {
 output "scylladbcloud_cluster_datacenter" {
   value = scylladbcloud_cluster.sc_cluster.datacenter
 }
-
-output "scylladbcloud_cluster_datacenter_id" {
-  value = scylladbcloud_cluster.sc_cluster.id
-}
 # Add a CIDR block to allowlist for the specified cluster.
 resource "scylladbcloud_allowlist_rule" "whitelist" {
   depends_on = [scylladbcloud_cluster.sc_cluster]

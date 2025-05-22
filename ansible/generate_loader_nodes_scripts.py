@@ -1,15 +1,15 @@
 import string
 import yaml
 import os
-import sys
 import shutil
 import math
 import paramiko
+import subprocess
+import json
+import argparse
 from paramiko import RSAKey, Ed25519Key
 from collections import defaultdict
 from google.cloud import compute_v1
-import subprocess
-import json
 
 #To handle loading of both RSA and ED25519 keys
 def load_ssh_key(key_path):
@@ -300,8 +300,8 @@ def generate_loader_scripts(data, output_directory, yaml_script_filename, suffix
         population_steps = data['population_steps']
         scylla_private_ip = data['scylla_private_ip']
         consistency_level = data['consistency_level']
-        throttle = math.trunc(data['loader_throttle'] / ((data['loader_node_count'] + data['dummy_loader_count']) * data['loader_processes']))  # Per loader trottling. If 150k total throttle, 3 loaders will be 150k/3=50k per node
-        threads = math.trunc(data['loader_threads'] / ((data['loader_node_count'] + data['dummy_loader_count']) * data['loader_processes']))  # Per loader threads. If 300 total threads, 3 loaders will be 150/3=50 per node
+        throttle = math.trunc(data['loader_throttle'] / ((data['loader_node_count']) * data['loader_processes']))  # Per loader trottling. If 150k total throttle, 3 loaders will be 150k/3=50k per node
+        threads = math.trunc(data['loader_threads'] / ((data['loader_node_count']) * data['loader_processes']))  # Per loader threads. If 300 total threads, 3 loaders will be 150/3=50 per node
         #Disable throttling if ZERO
         if data['loader_throttle'] > 0: 
             loader_throttle=f"throttle={throttle}/s"
@@ -311,7 +311,7 @@ def generate_loader_scripts(data, output_directory, yaml_script_filename, suffix
         scylla_private_ip_str = ",".join(data['scylla_private_ip_list'])
         user = data['scylla_cql_username']
         password = data['scylla_cql_password']
-        script_text = f"nohup cassandra-stress user profile={yaml_script_filename} cl={consistency_level} n={population_steps} "\
+        script_text = f"nohup cassandra-stress user profile={yaml_script_filename} cl={consistency_level} no-warmup n={population_steps} "\
                         f"'ops(insert=1)' -mode native cql3 user={user} password={password} -rate threads={threads} {loader_throttle} "\
                         f"-log interval=10 -node {scylla_private_ip_str}> $log_file 2>&1 &\n"
         
@@ -343,8 +343,8 @@ def generate_stresstest_scripts(data, output_directory, yaml_script_filename, su
                             f"interval=2  # Interval between checks in seconds\n"
                             f"elapsed=0\n\n")
 
-        throttle = math.trunc(data['stress_throttle'] / ((data['loader_node_count'] + data['dummy_loader_count']) * data['stress_processes']))  # Per loader trottling. If 150k total throttle, 3 nodes will be 150k/3=50k per node
-        threads = math.trunc(data['stress_threads'] / ((data['loader_node_count'] + data['dummy_loader_count']) * data['stress_processes']))  # Per loader threads. If 150 total threads, 3 nodes will be 150/3=50 per node
+        throttle = math.trunc(data['stress_throttle'] / ((data['loader_node_count']) * data['stress_processes']))  # Per loader trottling. If 150k total throttle, 3 nodes will be 150k/3=50k per node
+        threads = math.trunc(data['stress_threads'] / ((data['loader_node_count']) * data['stress_processes']))  # Per loader threads. If 150 total threads, 3 nodes will be 150/3=50 per node
 
         #Disable throttling if ZERO
         if data['stress_throttle'] > 0: 
@@ -356,7 +356,7 @@ def generate_stresstest_scripts(data, output_directory, yaml_script_filename, su
         user = data['scylla_cql_username']
         password = data['scylla_cql_password']
 
-        script_text = f"nohup cassandra-stress user profile={yaml_script_filename} cl={consistency_level} duration={stress_duration} "\
+        script_text = f"nohup cassandra-stress user profile={yaml_script_filename} cl={consistency_level} no-warmup duration={stress_duration} "\
                         f"'ops(insert={writes},{stress_query}={reads})' -mode native cql3 user={user} password={password} -rate threads={threads} {stress_throttle} "\
                         f"-log interval=10 -node {scylla_private_ip_str}> $log_file 2>&1 &\n\n"
         
@@ -385,7 +385,7 @@ def main(config):
     region_name = next(iter(config['regions']))
 
     # Fetch cluster_id and CQL credentials from Terraform output in parent dir
-    tf_output = json.loads(subprocess.check_output(["terraform", "output", "-json"], cwd="../"))
+    tf_output = json.loads(subprocess.check_output(["terraform", "output", "-json"], cwd="../terraform"))
     # Extract CQL user credentials from Terraform output
     scylla_cql_username = tf_output["scylla_cql_username"]["value"]
     scylla_cql_password = tf_output["scylla_cql_password"]["value"]
@@ -555,15 +555,40 @@ def main(config):
     generate_inventory()
 
 def read_config(file_path):
+    # Get the path to the current script and go up three levels
     with open(file_path, 'r') as file:
         return yaml.safe_load(file)
 
 if __name__ == "__main__":
-    # Load YAML configuration
-    config = read_config("../variables.yml")  # Ensure correct path
+    # Initialize argument parser
+    parser = argparse.ArgumentParser(description="ScyllaDB Cloud Cluster Setup")
+    parser.add_argument("--cluster", required=True, help="Cluster ID to configure")
 
-    region_name = next(iter(config["regions"]))
-    region = config["regions"][region_name]
+    try:
+        # Parse arguments
+        args = parser.parse_args()
+    except SystemExit:
+        print("Error: Missing required argument --cluster")
+        print("Usage: python script.py --cluster-id <cluster_id>")
+        exit(1)
+
+    # Parse arguments
+    args = parser.parse_args()
+    cluster_id = args.cluster
+
+    # Load YAML configuration but variables.yml is Far Far Away!!!
+    config = read_config("../../../variables.yml")  # Ensure correct path
+
+    # Extract only the 'clusters' dictionary
+    clusters = config.get('clusters', {})
+
+    # Get the specific cluster configuration
+    cluster_config = clusters.get(cluster_id)
+
+    if not cluster_config:
+        print(f"Error: Cluster '{cluster_id}' not found in variables.yml!")
+        exit(1)
 
     # Now `cluster_config` contains only the data for the requested cluster
-    main(config)
+    print(f"Extracted configuration for cluster '{cluster_id}':")
+    main(cluster_config)

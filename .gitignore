@@ -25,3 +25,4 @@ terraform.rc.terraform/
 variables.yml
 terraform.auto.tfvars.json
 .DS_Store
+clusters

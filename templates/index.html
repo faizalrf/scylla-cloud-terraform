@@ -31,11 +31,11 @@
       box-shadow: 0 0 10px 2px rgba(63, 81, 181, 0.4);
       transition: box-shadow 0.5s ease;
     }
-    #logOutput {
-      font-family: 'Hack Nerd Font', monospace !important;
-      font-size: 14px;
-      white-space: pre-wrap;
-      font-family: monospace;
+    #logOutput,
+    [id^="logOutput-"] {
+      font-family: 'Hack Nerd Font', 'Courier New', Courier, monospace !important;
+      font-size: 12px !important;
+      white-space: pre !important;
     }
     .resizable {
       resize: both;
@@ -112,6 +112,7 @@
 
     .logScrollWrapper {
         overscroll-behavior: contain;
+        scroll-behavior: smooth;
     }
     
     .monitor-content {
@@ -204,19 +205,16 @@
               <button class="w3-button w3-small w3-blue w3-border w3-round w3-tight-margin larger-button-text" data-cmd="test" onclick="runClusterCommand('test')">
                 <i class="fa fa-info-circle w3-margin-right"></i>Test Connectivity
               </button>
-              <button class="w3-button w3-small w3-blue w3-border w3-round w3-tight-margin larger-button-text" data-cmd="list" onclick="runClusterCommand('list')">
-                <i class="fa fa-list w3-margin-right"></i>List Clusters
-              </button>
               <button class="w3-button w3-small w3-blue w3-border w3-round w3-tight-margin larger-button-text" data-cmd="status" onclick="runClusterCommand('status')">
-                <i class="fa fa-line-chart w3-margin-right"></i>Nodetool Status
+                <i class="fa fa-line-chart w3-margin-right"></i>SC Cluster Status
               </button>
 
               <!-- Setup & Load -->
               <button class="w3-button w3-small w3-theme-d1 w3-round w3-tight-margin larger-button-text" data-cmd="setup" onclick="runClusterCommand('setup')">
-                <i class="fa fa-cogs w3-margin-right"></i>Setup Cluster
+                <i class="fa fa-cogs w3-margin-right"></i>Launch Cluster
               </button>
               <button class="w3-button w3-small w3-theme-d1 w3-round w3-tight-margin larger-button-text" data-cmd="initload" onclick="runClusterCommand('initload')">
-                <i class="fa fa-upload w3-margin-right"></i>Init Load
+                <i class="fa fa-upload w3-margin-right"></i>Initial Load
               </button>
               <button class="w3-button w3-small w3-theme-d1 w3-round w3-tight-margin larger-button-text" data-cmd="stresstest" onclick="runClusterCommand('stresstest')">
                 <i class="fa fa-tachometer w3-margin-right"></i>Stress Test
@@ -252,7 +250,7 @@
           <div id="statusBanner-{{ cluster.cluster_id }}" class="w3-panel w3-theme-l4 w3-leftbar w3-text-dark-grey" style="display: none; margin-top: 7px;">
             <strong>Status:</strong> <span id="statusMessage-{{ cluster.cluster_id }}">Chilling...</span>
           </div>
-            <div id="logScrollWrapper-{{ cluster.cluster_id }}" class="logScrollWrapper resizable w3-container w3-theme-d5 w3-margin-top w3-theme-d4" style="height: 500px; overflow-y: auto; position: relative; padding: 10px;">
+            <div id="logScrollWrapper-{{ cluster.cluster_id }}" class="logScrollWrapper resizable w3-container w3-theme-d5 w3-margin-top w3-theme-d4" style="height: 700px; overflow-y: auto; position: relative; padding: 10px;">
             <div id="logOutput-{{ cluster.cluster_id }}" class="logOutput" style="white-space: pre-wrap; font-family: monospace;"></div>
           </div>
         </div>    
@@ -379,20 +377,6 @@
       }
     }
 
-    // Disable the LogOutput scrolling throgh trackpad or mouse wheel
-    document.querySelectorAll('[id^="logScrollWrapper-"]').forEach(wrapper => {
-        wrapper.addEventListener('wheel', function(e) {
-            // Prevent internal scroll in the log area
-            e.preventDefault();
-
-            // Force page scroll instead
-            window.scrollBy({
-                top: e.deltaY,
-                left: 0,
-                behavior: 'auto' // or 'smooth'
-            });
-        }, { passive: false });
-    });
 
     function loadDashboard(dashboardType = 'overview') {
       if (!currentClusterId) return;

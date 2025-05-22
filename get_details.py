@@ -1,27 +1,83 @@
 import requests
 import json
+import yaml
+import subprocess
+from tabulate import tabulate
+import argparse
 
-def get_instance_type_id(scylla_token, account_id, cluster_id):
-    url = f"https://api.cloud.scylladb.com/account/{account_id}/cluster/{cluster_id}"
+
+def load_cluster_config(cluster_id):
+    with open("variables.yml", "r") as file:
+        config = yaml.safe_load(file)
+    return config["clusters"][cluster_id]
+
+def get_terraform_output(cluster_id):
+    tf_dir = f"clusters/{cluster_id}/terraform"
+    result = subprocess.run(
+        ["terraform", "output", "-json"],
+        cwd=tf_dir,
+        capture_output=True,
+        text=True
+    )
+    if result.returncode != 0:
+        print("Terraform output failed:", result.stderr)
+        return None
+    output = json.loads(result.stdout)
+    return output.get("scylladbcloud_cluster_id", {}).get("value")
+
+def print_cluster_info_table(cluster_info):
+    data = []
+    for key, value in cluster_info.get("data", {}).items():
+        data.append([key, json.dumps(value, indent=2) if isinstance(value, (dict, list)) else value])
+    print(tabulate(data, headers=["Key", "Value"], tablefmt="fancy_grid"))
+
+def get_node_details(cluster_id):
+    config = load_cluster_config(cluster_id)
+    scylla_token = config["scylla_api_token"]
+    account_id = config["scylla_account_id"]
+    tf_cluster_id = get_terraform_output(cluster_id)
+    print("Scylla Cloud Cluster ID:", tf_cluster_id)
+    if not tf_cluster_id:
+        return
+
+    url = f"https://api.cloud.scylladb.com/account/{account_id}/cluster/{tf_cluster_id}/nodes?enriched=true"
     headers = {
         'Content-Type': 'application/json',
         'Authorization': f'Bearer {scylla_token}',
-        'Trace-Id': 'get-instance-type'
+        'Trace-Id': 'get-node-details'
     }
 
     response = requests.get(url, headers=headers)
 
     if response.status_code != 200:
-        print(f"❌ Failed to get cluster info. Status: {response.status_code}")
+        print(f"Failed to get node details. Status: {response.status_code}")
         print("Response:", response.text)
         return
 
-    cluster_info = response.json()
-    print(json.dumps(cluster_info, indent=2))
+    nodes_info = response.json()
+    nodes = nodes_info.get("data", {}).get("nodes", [])
+    table_data = []
+    for node in nodes:
+        row = [
+            node.get("privateIp"),
+            node.get("status"),
+            node.get("state"),
+            node.get("region", {}).get("dcName"),
+            node.get("instance", {}).get("externalId"),
+            node.get("instance", {}).get("memory")/1024,
+            node.get("instance", {}).get("totalStorage"),
+            node.get("instance", {}).get("cpuCount"),
+            node.get("instance", {}).get("networkSpeed")/1024,
+            node.get("dataCenter", {}).get("cidrBlock")
+        ]
+        table_data.append(row)
 
-# Example usage
-get_instance_type_id(
-    scylla_token="",
-    account_id="929",
-    cluster_id="34765"
-)
+    headers = ["Private IP", "Status", "State", "Region DC Name", "Instance Type", "Memory (GB)", "Storage (GB)", "vCPUs", "Net Speed (Gbps)", "CIDR Block"]
+    print(tabulate(table_data, headers=headers, tablefmt="fancy_grid"))
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Get node details for a Scylla cluster.")
+    parser.add_argument("--cluster", required=True, help="Cluster ID to fetch details for.")
+    args = parser.parse_args()
+
+    get_node_details(args.cluster)

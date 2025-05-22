@@ -69,18 +69,17 @@ def update_config(cluster_id):
 @app.route('/run_script/<script_name>/<cluster_id>')
 def run_script(script_name, cluster_id):
     commands = {
-        'test': f"./scylla-automation-framework.sh autotest {cluster_id}",
-        'list': f"./scylla-automation-framework.sh status",
-        'status': f"./scylla-automation-framework.sh status {cluster_id}",
-        'setup': f"./scylla-automation-framework.sh setup {cluster_id}",
-        'initload': f"./scylla-automation-framework.sh initload {cluster_id}",
-        'stresstest': f"./scylla-automation-framework.sh stresstest {cluster_id}",
-        'scaleout': f"./scylla-automation-framework.sh scaleout {cluster_id}",
-        'scaleout2': f"./scylla-automation-framework.sh scaleout2 {cluster_id}",
-        'scalein': f"./scylla-automation-framework.sh scalein {cluster_id}",
-        'scalein2': f"./scylla-automation-framework.sh scalein2 {cluster_id}",
-        'kilload': f"./scylla-automation-framework.sh kilload {cluster_id}",
-        'destroy': f"./scylla-automation-framework.sh destroy {cluster_id}",
+        'test': f"./scylla-cloud-operations.sh autotest {cluster_id}",
+        'status': f"./scylla-cloud-operations.sh status {cluster_id}",
+        'setup': f"./scylla-cloud-operations.sh setup {cluster_id}",
+        'initload': f"./scylla-cloud-operations.sh initload {cluster_id}",
+        'stresstest': f"./scylla-cloud-operations.sh stresstest {cluster_id}",
+        'scaleout': f"./scylla-cloud-operations.sh scaleout {cluster_id}",
+        'scaleout2': f"./scylla-cloud-operations.sh scaleout2 {cluster_id}",
+        'scalein': f"./scylla-cloud-operations.sh scalein {cluster_id}",
+        'scalein2': f"./scylla-cloud-operations.sh scalein2 {cluster_id}",
+        'kilload': f"./scylla-cloud-operations.sh kilload {cluster_id}",
+        'destroy': f"./scylla-cloud-operations.sh destroy {cluster_id}",
     }   
 
     command = commands.get(script_name)
