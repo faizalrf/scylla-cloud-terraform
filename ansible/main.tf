@@ -1,5 +1,5 @@
 provider "aws" {
-  region = var.region
+  region = var.loader_vpc_region
 }
 
 data "aws_ami" "scylla_ami" {
@@ -84,7 +84,7 @@ resource "aws_instance" "loader" {
   tags = {
     Name    = "loader-${count.index + 1}"
     Type    = "Loader"
-    Region  = var.region
+    Region  = var.loader_vpc_region
   }
 }
 

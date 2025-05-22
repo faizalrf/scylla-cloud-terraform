@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Scylla Multi-Cluster Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://www.w3schools.com/w3css/5/w3.css">
+  <link rel="stylesheet" href="https://www.w3schools.com/lib/w3-theme-indigo.css">
+  <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.1/socket.io.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ansi_up@5.0.0/ansi_up.min.js"></script>
+  <link rel="stylesheet" href="https://www.w3schools.com/lib/w3-colors-highway.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+  <style>
+    @font-face {
+      font-family: 'Hack Nerd Font';
+      src: url('/static/fonts/HackNerdFont-Regular.ttf') format('truetype');
+      font-weight: normal;
+      font-style: normal;
+    }
+    #yamlEditorSection {
+      overflow: hidden;
+      height: 0;
+      transition: height 0.3s ease, padding 0.3s ease;
+    }
+    #editorToggleBtn {
+      border-radius: 4px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    .yaml-glow {
+      box-shadow: 0 0 10px 2px rgba(63, 81, 181, 0.4);
+      transition: box-shadow 0.5s ease;
+    }
+    #logOutput {
+      font-family: 'Hack Nerd Font', monospace !important;
+      font-size: 14px;
+      white-space: pre-wrap;
+      font-family: monospace;
+    }
+    .resizable {
+      resize: both;
+      overflow: auto;
+      min-height: 300px;
+      max-height: 1200px;
+    }
+    
+    .w3-bar-scrollable {
+      overflow-x: auto;
+      white-space: nowrap;
+      -webkit-overflow-scrolling: touch; /* for smooth iOS scroll */
+    }
+    .w3-bar-scrollable .w3-bar-item {
+      display: inline-block;
+      float: none;
+    }
+    .w3-bar-scrollable {
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+    .w3-bar-scrollable .w3-bar-item {
+      display: inline-block;
+    }
+
+    .larger-button-text {
+      font-size: 13px !important; /* default w3-small is ~12px */
+    } 
+
+    .tab-btn {
+      font-weight: 500;
+      border-bottom: 3px solid transparent;
+      transition: all 0.2s ease;
+      padding: 10px 16px;
+      background-color: #f1f1f1;
+      margin-top: 2px;
+      margin-right: 2px;
+      border-radius: 5px 5px 0 0;
+    }
+
+    .tab-btn:hover {
+      background-color: #ddd;
+      border-bottom: 3px solid #3f51b5;
+      cursor: pointer;
+    }
+
+    .tab-btn.w3-theme {
+      background-color: #3f51b5 !important;
+      color: white !important;
+      border-bottom: 3px solid #283593;
+    }
+ 
+    .tab-btn.running {
+      border-bottom: 3px solid #1c6ab8 !important;
+      animation: pulse-underline 1s infinite ease-in-out;
+    }
+ 
+    @keyframes pulse-underline {
+      0% { box-shadow: inset 0 -2px 0 0 rgba(213, 206, 18, 0.836); }
+      70% { box-shadow: inset 0 -8px 0 0 rgba(255, 235, 59, 0); }
+      100% { box-shadow: inset 0 -2px 0 0 rgba(255, 235, 59, 0); }
+    }
+  
+    .tab-btn.scylla-ready::after {
+      content: "";
+      display: inline-block;
+      background-image: url('/static/img/scylla-cloud.png');
+      background-size: contain;
+      width: 30px;
+      height: 20px;
+      margin-left: 10px;
+      vertical-align: middle;
+    }
+
+    .logScrollWrapper {
+        overscroll-behavior: contain;
+    }
+    
+    .monitor-content {
+      overflow: hidden;
+      height: 0;
+      transition: height 0.3s ease, padding 0.3s ease;
+    }
+
+  </style>
+</head>
+<body class="w3-theme-l5">
+
+  <!-- Header Bar -->
+  <div class="w3-bar w3-theme">
+    <span class="w3-bar-item w3-xlarge">Scylla Cluster Dashboard</span>
+  </div>
+
+  <!-- Cluster Tabs -->
+  <div class="w3-bar w3-border-bottom w3-light-grey w3-bar-scrollable">
+    {% for cluster in clusters_info %}
+      <button class="w3-bar-item w3-button tablink tab-btn"
+              onclick="openClusterTab(event, '{{ cluster.cluster_id }}')"
+              id="tab-btn-{{ cluster.cluster_id }}">
+        {{ cluster.cluster_name }}
+      </button>
+    {% endfor %}
+  </div>
+
+  {% for cluster in clusters_info %}
+    <div class="cluster-tab-content" id="cluster-tab-{{ cluster.cluster_id }}" style="display: none;">
+
+      <!-- Cluster Info Card for this cluster -->
+      <div id="clusterInfo-{{ cluster.cluster_id }}" class="w3-card-4 w3-margin-top">
+        <div class="w3-container w3-theme w3-card">
+          <h4 id="clusterTitle-{{ cluster.cluster_id }}">Cluster: Loading...</h4>
+        </div>
+    
+        <div class="w3-container w3-theme-l3">
+          <p><b>Cloud:</b> <span id="clusterCloud-{{ cluster.cluster_id }}">...</span></p>
+          <p><b>Scylla Version:</b> <span id="clusterVersion-{{ cluster.cluster_id }}">...</span></p>
+          <p><b>Regions:</b> <span id="clusterRegions-{{ cluster.cluster_id }}">...</span></p>
+        </div>    
+      </div>
+
+      <!-- Editable YAML Editor for this cluster -->
+        <div class="w3-theme-l4">
+          <div class="w3-theme-l4" style="padding: 10px; display: flex; align-items: center; gap: 10px; cursor: pointer;" onclick="toggleEditor()">
+            <h6 style="margin: 0;">Edit Cluster Configuration</h6>
+            <button id="editorToggleBtn-{{ cluster.cluster_id }}" style="font-size: 0.9rem; padding: 5px 10px; background-color: #f1f1f1; border: none; border-radius: 5px;">
+              <i id="editorToggleIcon-{{ cluster.cluster_id }}" class="fa fa-chevron-down"></i>
+            </button>
+          </div>    
+          <div class="w3-theme-l4" id="yamlEditorSection-{{ cluster.cluster_id }}" data-expanded="false" style="overflow: hidden; height: 0; padding: 0 10px; background-color: #ffffff; transition: height 0.2s ease, padding 0.2s ease;">
+            <textarea id="jsonEditor-{{ cluster.cluster_id }}"
+                      class="w3-input w3-border w3-light-grey w3-round w3-margin-top w3-theme-l3"
+                      style="font-family: monospace; height: 450px;"
+                      readonly>
+            </textarea>
+        
+            <div class="w3-bar w3-margin-top" style="margin-bottom: 16px;">
+                <button class="w3-button w3-theme w3-round" onclick="enableEdit()">Edit</button>
+                <button id="saveBtn-{{ cluster.cluster_id }}" class="w3-button w3-round w3-theme" style="display:none;" onclick="saveChanges()">Save</button>
+                <button id="cancelBtn-{{ cluster.cluster_id }}" class="w3-button w3-round w3-theme" style="display:none;" onclick="cancelEdit()">Cancel</button>
+                <button id="saveAsBtn-{{ cluster.cluster_id }}" class="w3-button w3-round w3-theme" style="display:none;" onclick="saveAs()">Save As</button>
+                <div class="w3-bar w3-theme"></div>
+            </div>
+          </div>  
+        </div>    
+
+      <!-- Action Buttons + Logs -->
+      <div class="w3-card-4">
+        <div id="actionButtons-{{ cluster.cluster_id }}" class="w3-container w3-theme-l4" style="display: none;">
+          <h5>Cluster Actions</h5>
+          {% set regions = cluster.get('regions', {}) %}
+          {% set region_keys = regions.keys() | list %}
+          {% if region_keys | length > 0 %}
+            {% set first_region = regions[region_keys[0]] %}
+            {% set scale_nodes = first_region.get('scale_nodes', 0) %}
+            {% set scale2_nodes = first_region.get('scale2_nodes', 0) %}
+            {% set scale_type = first_region.get('scylla_scale_node_type', 'N/A') %}
+            {% set scale2_type = first_region.get('scylla_scale2_node_type', 'N/A') %}
+          {% else %}
+            {% set scale_nodes = 0 %}
+            {% set scale2_nodes = 0 %}
+            {% set scale_type = 'N/A' %}
+            {% set scale2_type = 'N/A' %}
+          {% endif %}
+            <div class="w3-bar w3-padding-small">
+              <!-- Passive info -->
+              <button class="w3-button w3-small w3-blue w3-border w3-round w3-tight-margin larger-button-text" data-cmd="test" onclick="runClusterCommand('test')">
+                <i class="fa fa-info-circle w3-margin-right"></i>Test Connectivity
+              </button>
+              <button class="w3-button w3-small w3-blue w3-border w3-round w3-tight-margin larger-button-text" data-cmd="list" onclick="runClusterCommand('list')">
+                <i class="fa fa-list w3-margin-right"></i>List Clusters
+              </button>
+              <button class="w3-button w3-small w3-blue w3-border w3-round w3-tight-margin larger-button-text" data-cmd="status" onclick="runClusterCommand('status')">
+                <i class="fa fa-line-chart w3-margin-right"></i>Nodetool Status
+              </button>
+
+              <!-- Setup & Load -->
+              <button class="w3-button w3-small w3-theme-d1 w3-round w3-tight-margin larger-button-text" data-cmd="setup" onclick="runClusterCommand('setup')">
+                <i class="fa fa-cogs w3-margin-right"></i>Setup Cluster
+              </button>
+              <button class="w3-button w3-small w3-theme-d1 w3-round w3-tight-margin larger-button-text" data-cmd="initload" onclick="runClusterCommand('initload')">
+                <i class="fa fa-upload w3-margin-right"></i>Init Load
+              </button>
+              <button class="w3-button w3-small w3-theme-d1 w3-round w3-tight-margin larger-button-text" data-cmd="stresstest" onclick="runClusterCommand('stresstest')">
+                <i class="fa fa-tachometer w3-margin-right"></i>Stress Test
+              </button>
+
+              <!-- Scaling -->
+              {% if scale_nodes > 0 %}
+                <button class="w3-button w3-small w3-theme-d5 w3-round w3-tight-margin larger-button-text" data-cmd="scaleout" onclick="runClusterCommand('scaleout')">
+                  <i class="fa fa-arrow-up w3-margin-right"></i>Scale-out to {{ scale_nodes }} x {{ scale_type }}
+                </button>
+                <button class="w3-button w3-small w3-theme-d5 w3-round w3-tight-margin larger-button-text" data-cmd="scalein" onclick="runClusterCommand('scalein')">
+                  <i class="fa fa-arrow-down w3-margin-right"></i>Scale-in from {{ scale_nodes }} x {{ scale_type }}
+                </button>
+              {% endif %}
+
+              {% if scale2_nodes > 0 %}
+                <button class="w3-button w3-small w3-theme-d5 w3-round w3-tight-margin larger-button-text" data-cmd="scaleout2" onclick="runClusterCommand('scaleout2')">
+                  <i class="fa fa-arrow-up w3-margin-right"></i>Scale-out to {{ scale2_nodes }} x {{ scale2_type }}
+                </button>
+                <button class="w3-button w3-small w3-theme-d5 w3-round w3-tight-margin larger-button-text" data-cmd="scalein2" onclick="runClusterCommand('scalein2')">
+                  <i class="fa fa-arrow-down w3-margin-right"></i>Scale-in from {{ scale2_nodes }} x {{ scale2_type }}
+                </button>
+              {% endif %}
+
+              <!-- Kill & Destroy -->
+              <button class="w3-button w3-small w3-highway-orange w3-round w3-tight-margin larger-button-text" data-cmd="kilload" onclick="runClusterCommand('kilload')">
+                <i class="fa fa-bolt w3-margin-right"></i>Kill Load
+              </button>
+              <button class="w3-button w3-small w3-highway-red w3-round w3-tight-margin larger-button-text" data-cmd="destroy" onclick="runClusterCommand('destroy')">
+                <i class="fa fa-times-circle w3-margin-right"></i>Destroy
+              </button>
+          </div>
+          <div id="statusBanner-{{ cluster.cluster_id }}" class="w3-panel w3-theme-l4 w3-leftbar w3-text-dark-grey" style="display: none; margin-top: 7px;">
+            <strong>Status:</strong> <span id="statusMessage-{{ cluster.cluster_id }}">Chilling...</span>
+          </div>
+            <div id="logScrollWrapper-{{ cluster.cluster_id }}" class="logScrollWrapper resizable w3-container w3-theme-d5 w3-margin-top w3-theme-d4" style="height: 500px; overflow-y: auto; position: relative; padding: 10px;">
+            <div id="logOutput-{{ cluster.cluster_id }}" class="logOutput" style="white-space: pre-wrap; font-family: monospace;"></div>
+          </div>
+        </div>    
+      </div>
+      <!-- Monitoring Panel -->
+      
+      <div id="monitorDashboard-{{ cluster.cluster_id }}" class="monitor-dashboard w3-container w3-theme-l4" style="display: none;">
+        <h4>
+          Scylla Monitoring Dashboard
+          <button onclick="toggleMonitor('{{ cluster.cluster_id }}')" class="w3-button w3-small w3-circle w3-theme" style="font-size: 0.9rem; padding: 5px 10px; background-color: #f1f1f1; border: none; border-radius: 5px;">
+            <i id="monitorToggleIcon-{{ cluster.cluster_id }}" class="fa fa-chevron-down"></i>
+          </button>
+        </h4>
+          <div id="monitorContent-{{ cluster.cluster_id }}" class="monitor-content" data-expanded="false">
+            <div class="w3-bar w3-margin-bottom">
+              <button class="w3-button w3-round w3-theme w3-tight-margin w3-small larger-button-text" onclick="loadDashboard('overview')">
+                <i class="fa fa-bar-chart w3-margin-right"></i>Overview
+              </button>
+              <button class="w3-button w3-round w3-theme w3-tight-margin w3-small larger-button-text" onclick="loadDashboard('detailed')">
+                <i class="fa fa-th-list w3-margin-right"></i>Detailed
+              </button>
+              <button class="w3-button w3-round w3-theme w3-tight-margin w3-small larger-button-text" onclick="loadDashboard('advanced')">
+                <i class="fa fa-cogs w3-margin-right"></i>Advanced
+              </button>
+              <button class="w3-button w3-round w3-theme w3-tight-margin w3-small larger-button-text" onclick="loadDashboard('os')">
+                <i class="fa fa-microchip w3-margin-right"></i>OS Metrics
+              </button>
+              <button class="w3-button w3-round w3-theme w3-tight-margin w3-smal larger-button-text" onclick="loadDashboard('cql')">
+                <i class="fa fa-terminal w3-margin-right"></i>CQL
+              </button>
+            </div>
+            <iframe class="w3-theme-l4" id="monitoringIframe-{{ cluster.cluster_id }}" style="width: 100%; height: 2500px; border: none;"></iframe>
+          </div>
+      </div>
+    </div>
+  {% endfor %}
+
+  <!-- JavaScript -->
+  <script>
+    let currentClusterId = null;
+    let originalJson = '';
+    //Changed to an array to store status of the animation for multiple tabs!
+    let statusAnimationIntervals = {};  // { cluster_id: { cmd: interval } }
+    let currentRunningCommand = {};  // Track active command per cluster
+    function markCommandRunning(clusterId, cmd) {
+      if (!currentRunningCommand[clusterId]) {
+        currentRunningCommand[clusterId] = new Set();
+      }
+      currentRunningCommand[clusterId].add(cmd);
+    }
+    const socket = io();
+    socket.on('log_update', function(msg) {
+      const cid = msg.cluster_id || currentClusterId;
+      console.log("Socket update for:", msg.cluster_id);
+      console.log("currentClusterId:", currentClusterId);
+      const logDiv = document.getElementById(`logOutput-${cid}`);
+      const logWrapper = document.getElementById(`logScrollWrapper-${cid}`);
+      const ansi_up = new AnsiUp();
+      logDiv.innerHTML += ansi_up.ansi_to_html(msg.data + '\n');
+      logWrapper.scrollTop = logWrapper.scrollHeight;
+
+      if (msg.data.includes("finished with exit code") &&
+          currentRunningCommand[cid] &&
+          currentRunningCommand[cid].has(msg.cmd)) {
+        const statusMessage = document.getElementById(`statusMessage-${cid}`);
+        const statusBanner = document.getElementById(`statusBanner-${cid}`);
+        const isSuccess = msg.data.includes("exit code 0");
+        const isError = msg.data.includes("exit code") && !msg.data.includes("exit code 0");
+ 
+        // Stop animation first
+        if (statusAnimationIntervals[cid] && statusAnimationIntervals[cid][msg.cmd]) {
+          clearInterval(statusAnimationIntervals[cid][msg.cmd]);
+          delete statusAnimationIntervals[cid][msg.cmd];
+        } 
+        currentRunningCommand[cid].delete(msg.cmd);
+        if (currentRunningCommand[cid].size === 0) {
+          delete currentRunningCommand[cid];
+          statusMessage.textContent = "Process completed.";
+ 
+          statusBanner.classList.remove('w3-border-yellow', 'w3-border-green', 'w3-border-red');
+ 
+          if (isSuccess) {
+            statusBanner.classList.add('w3-border-green');
+          } else if (isError) {
+            statusBanner.classList.add('w3-border-red');
+          } else {
+            statusBanner.classList.add('w3-border-yellow');
+          }
+ 
+          // Re-enable all buttons that might have been disabled
+          const btns = document.querySelectorAll(`#actionButtons-${cid} button`);
+          btns.forEach(btn => {
+            btn.disabled = false;
+          });
+          const tab = document.getElementById(`tab-btn-${cid}`);
+          if (tab) {
+            tab.classList.remove("running");
+          }
+        }
+      }
+    });
+
+    function toggleMonitor(clusterId) {
+      const section = document.getElementById(`monitorContent-${clusterId}`);
+      const icon = document.getElementById(`monitorToggleIcon-${clusterId}`);
+      const isExpanded = section.getAttribute('data-expanded') === 'true';
+
+      if (!isExpanded) {
+        // Expand smoothly
+        section.style.height = section.scrollHeight + 'px';
+        section.style.paddingTop = '10px';
+        section.style.paddingBottom = '10px';
+        icon.classList.remove('fa-chevron-down');
+        icon.classList.add('fa-chevron-up');
+        section.setAttribute('data-expanded', 'true');
+      } else {
+        // Collapse smoothly
+        section.style.height = '0px';
+        section.style.paddingTop = '0';
+        section.style.paddingBottom = '0';
+        icon.classList.remove('fa-chevron-up');
+        icon.classList.add('fa-chevron-down');
+        section.setAttribute('data-expanded', 'false');
+      }
+    }
+
+    // Disable the LogOutput scrolling throgh trackpad or mouse wheel
+    document.querySelectorAll('[id^="logScrollWrapper-"]').forEach(wrapper => {
+        wrapper.addEventListener('wheel', function(e) {
+            // Prevent internal scroll in the log area
+            e.preventDefault();
+
+            // Force page scroll instead
+            window.scrollBy({
+                top: e.deltaY,
+                left: 0,
+                behavior: 'auto' // or 'smooth'
+            });
+        }, { passive: false });
+    });
+
+    function loadDashboard(dashboardType = 'overview') {
+      if (!currentClusterId) return;
+      fetch(`/get_monitor_ip/${currentClusterId}`)
+        .then(res => res.text())
+        .then(monitoringIp => {
+          let iframeSrc = "";
+          if (dashboardType === "overview") {
+            iframeSrc = `http://${monitoringIp}:3000/d/overview-6-2/overview?from=now-5m&to=now&var-by=instance&var-cluster=cluster&var-dc=All&var-node=All&var-shard=All&var-mount_point=%2Fvar%2Flib%2Fscylla&var-sg=sl:default&var-func=sum&var-dash_version=2024-2&var-all_scyllas_versions=All&var-count_dc=All&var-scylla_version=2024.2&var-monitoring_version=4.8.1&orgId=1&refresh=5s&var-kind=All&var-topk=256&var-bottomk=0&theme=dark&var-sg=sl:realtime&var-sg=sl:wlp`;
+          } else if (dashboardType === "detailed") {
+            iframeSrc = `http://${monitoringIp}:3000/d/detailed-6-2/detailed?from=now-5m&to=now&var-by=instance&var-cluster=cluster&var-dc=All&var-node=All&var-shard=All&var-topk=256&var-bottomk=0&var-dash_version=2024-2&var-scylla_version=2024.2&var-monitoring_version=4.8.1&orgId=1&refresh=5s&var-sg=sl:realtime&var-sg=sl:wlp&var-kind=All&var-func=sum&theme=dark`;
+          } else if (dashboardType === "advanced") {
+            iframeSrc = `http://${monitoringIp}:3000/d/advanced-6-2/advanced?$from=now-5m&to=now&var-by=instance&var-cluster=cluster&var-dc=All&var-node=All&var-shard=All&var-mount_point=%2Fvar%2Flib%2Fscylla&var-sg=sl:default&var-func=sum&var-dash_version=2024-2&var-all_scyllas_versions=All&var-count_dc=All&var-scylla_version=2024.2&var-monitoring_version=4.8.1&orgId=1&refresh=5s&var-kind=All&var-topk=256&var-bottomk=0&theme=dark`;
+          } else if (dashboardType === "os") {
+            iframeSrc = `http://${monitoringIp}:3000/d/OS-6-2/os-metrics?$from=now-5m&to=now&var-by=instance&var-cluster=cluster&var-dc=All&var-node=All&var-shard=All&var-mount_point=%2Fvar%2Flib%2Fscylla&var-sg=sl:realtime&var-sg=sl:wlp&var-func=sum&var-dash_version=2024-2&var-all_scyllas_versions=All&var-count_dc=All&var-scylla_version=2024.2&var-monitoring_version=4.8.1&orgId=1&refresh=5s&var-kind=All&var-topk=256&var-bottomk=0&theme=dark`;
+          } else if (dashboardType === "cql") {
+            iframeSrc = `http://${monitoringIp}:3000/d/cql-6-2/cql?from=now-5m&to=now&var-by=instance&var-cluster=cluster&var-dc=All&var-node=All&var-shard=All&var-topk=256&var-bottomk=0&var-dash_version=2024-2&var-scylla_version=2024.2&var-monitoring_version=4.8.1&orgId=1&refresh=30s&theme=dark`;
+          }
+
+          //Handle the enabling and disabling of the Setup/Destroy buttons based on the availability of the Monitoring IP
+          const setupBtn = document.querySelector(`#actionButtons button[data-cmd="setup"]`);
+          const destroyBtn = document.querySelector(`#actionButtons button[data-cmd="destroy"]`);
+
+          if (monitoringIp && !monitoringIp.startsWith("Monitoring")) {
+            const tabBtn = document.getElementById(`tab-btn-${currentClusterId}`);
+            if (tabBtn) tabBtn.classList.add("scylla-ready");
+            document.getElementById(`monitorDashboard-${currentClusterId}`).style.display = 'block';
+            document.getElementById(`monitoringIframe-${currentClusterId}`).src = iframeSrc;
+ 
+            if (setupBtn) setupBtn.disabled = true;    // Already set up
+            if (destroyBtn) destroyBtn.disabled = false; // Can destroy
+          } else {
+            const tabBtn = document.getElementById(`tab-btn-${currentClusterId}`);
+            if (tabBtn) tabBtn.classList.remove("scylla-ready");
+            document.getElementById(`monitorDashboard-${currentClusterId}`).style.display = 'none';
+ 
+            if (setupBtn) setupBtn.disabled = false;   // Can set up
+            if (destroyBtn) destroyBtn.disabled = true;  // Nothing to destroy
+          }
+        })
+        .catch(err => {
+          console.error("Failed to load monitoring IP:", err);
+          document.getElementById(`monitorDashboard-${currentClusterId}`).style.display = 'none';
+        });
+    }
+
+    function openClusterTab(evt, clusterId) {
+      if (currentClusterId) {
+        const oldEditor = document.getElementById(`jsonEditor-${currentClusterId}`);
+        if (oldEditor && oldEditor.readOnly === false) {
+          const confirmLeave = confirm("You have unsaved changes. Are you sure you want to switch clusters?");
+          if (!confirmLeave) return;
+        }
+      }
+
+      let tabcontent = document.getElementsByClassName("cluster-tab-content");
+      for (let i = 0; i < tabcontent.length; i++) {
+        tabcontent[i].style.display = "none";
+      }
+
+      currentClusterId = clusterId;
+      document.getElementById(`cluster-tab-${clusterId}`).style.display = 'block';
+
+      // Remove active styling from all tabs
+      let tablinks = document.getElementsByClassName("tablink");
+      for (let i = 0; i < tablinks.length; i++) {
+        tablinks[i].classList.remove("w3-theme");
+      }
+      evt.currentTarget.classList.add("w3-theme");
+
+      // Fetch cluster data
+      fetch(`/get_config/${clusterId}`)
+        .then(res => res.text())  // ← this is the key fix!
+        .then(yamlText => {
+          originalJson = yamlText;
+          try {
+            const parsed = jsyaml.load(yamlText);
+            document.getElementById(`clusterTitle-${currentClusterId}`).textContent = `Cluster: ${parsed.cluster_name || 'N/A'}`;
+            document.getElementById(`clusterCloud-${currentClusterId}`).textContent = parsed.cloud || 'N/A';
+            document.getElementById(`clusterVersion-${currentClusterId}`).textContent = parsed.scylla_version || 'N/A';
+            document.getElementById(`clusterRegions-${currentClusterId}`).textContent = Object.keys(parsed.regions || {}).join(', ');
+          } catch (e) {
+            console.error('Failed to parse YAML for header update:', e);
+          }
+          document.getElementById(`jsonEditor-${clusterId}`).value = yamlText;
+          document.getElementById(`jsonEditor-${currentClusterId}`).readOnly = true;
+          document.getElementById(`actionButtons-${clusterId}`).style.display = 'block';
+
+          document.getElementById(`saveBtn-${currentClusterId}`).style.display = 'none';
+          document.getElementById(`cancelBtn-${currentClusterId}`).style.display = 'none';
+          document.getElementById(`saveAsBtn-${currentClusterId}`).style.display = 'none';
+        })
+        .then(() => {
+          loadDashboard();
+        });
+    }
+
+    function runClusterCommand(cmd) {
+      if (!currentClusterId) {
+        alert("No cluster selected.");
+        return;
+      }
+
+      const thisBtn = document.querySelector(`#actionButtons-${currentClusterId} button[data-cmd="${cmd}"]`);
+      if (thisBtn) thisBtn.disabled = true;
+
+      const statusBanner = document.getElementById(`statusBanner-${currentClusterId}`);
+      const statusMessage = document.getElementById(`statusMessage-${currentClusterId}`);
+
+      // Special prompt for destructive actions
+      if (cmd === 'destroy') {
+        const clusterTitle = document.getElementById(`clusterTitle-${currentClusterId}`).textContent;
+        const expectedName = clusterTitle.replace("Cluster: ", "").trim();
+        const input = prompt(`Type the cluster name exactly as shown to confirm destruction: "${expectedName}"`);
+        if (input !== expectedName) {
+          alert("Cluster name mismatch. Destruction aborted.");
+          if (thisBtn) thisBtn.disabled = false;
+          return;
+        }
+      }
+
+      fetch(`/run_script/${cmd}/${currentClusterId}`)
+        .then(res => res.json())
+        .then(data => {
+          if (currentRunningCommand[currentClusterId]?.has(cmd)) {
+            currentRunningCommand[currentClusterId].delete(cmd);
+          }
+          if (data.status !== 'started') {
+            document.getElementById(`logOutput-${currentClusterId}`).innerText += `Error: ${data.error || 'Unknown error'}\n`;
+            statusMessage.textContent = `Failed to start ${cmd}`;
+            if (thisBtn) thisBtn.disabled = false;
+          } else {
+            markCommandRunning(currentClusterId, cmd);  // Only mark as running when truly started
+            statusBanner.style.display = 'block';
+            const baseMessage = `Running ${cmd} on ${currentClusterId}`;
+            statusMessage.textContent = baseMessage;
+
+            let dotCount = 0;
+            if (!statusAnimationIntervals[currentClusterId]) {
+              statusAnimationIntervals[currentClusterId] = {};
+            }
+            if (statusAnimationIntervals[currentClusterId][cmd]) {
+              clearInterval(statusAnimationIntervals[currentClusterId][cmd]);
+            }
+            statusAnimationIntervals[currentClusterId][cmd] = setInterval(() => {
+              dotCount = (dotCount + 1) % 4;
+              if (currentRunningCommand[currentClusterId]?.has(cmd)) {
+                statusMessage.textContent = baseMessage + '.'.repeat(dotCount);
+              }
+            }, 500);
+
+            statusBanner.classList.remove('w3-border-yellow', 'w3-border-green', 'w3-border-red');
+            statusBanner.classList.add('w3-border-yellow');
+
+            const activeTab = document.getElementById(`tab-btn-${currentClusterId}`);
+            if (activeTab) {
+              activeTab.classList.add("running");
+            }
+          }
+        });
+    }
+    
+    function enableEdit() {
+      const editor = document.getElementById(`jsonEditor-${currentClusterId}`);
+      editor.readOnly = false;
+      editor.focus();
+
+      document.getElementById(`saveBtn-${currentClusterId}`).style.display = 'inline-block';
+      document.getElementById(`cancelBtn-${currentClusterId}`).style.display = 'inline-block';
+      document.getElementById(`saveAsBtn-${currentClusterId}`).style.display = 'inline-block';
+
+      // Auto-expand if collapsed
+      const section = document.getElementById(`yamlEditorSection-${currentClusterId}`);
+      const toggleBtn = document.getElementById(`editorToggleBtn-${currentClusterId}`);
+      if (section.getAttribute('data-expanded') !== 'true') {
+        toggleEditor();
+      }
+
+      // Add highlight
+      section.classList.add('yaml-glow');
+      setTimeout(() => section.classList.remove('yaml-glow'), 1000);
+    }
+
+    function cancelEdit() {
+      const editor = document.getElementById(`jsonEditor-${currentClusterId}`);
+      editor.value = originalJson;
+      editor.readOnly = true;
+
+      document.getElementById(`saveBtn-${currentClusterId}`).style.display = 'none';
+      document.getElementById(`cancelBtn-${currentClusterId}`).style.display = 'none';
+      document.getElementById(`saveAsBtn-${currentClusterId}`).style.display = 'none';
+    }
+
+    function saveChanges() {
+      const updatedYaml = document.getElementById(`jsonEditor-${currentClusterId}`).value;
+
+      try {
+        jsyaml.load(updatedYaml); // throws on error
+      } catch (e) {
+        let message = "Invalid YAML syntax.";
+        if (e.mark) {
+          message += `\nLine: ${e.mark.line + 1}, Column: ${e.mark.column + 1}`;
+          message += `\nContext: ${e.reason || e.message}`;
+        } else {
+          message += `\nError: ${e.message}`;
+        }
+        alert(message);
+        return;
+      }
+
+      fetch(`/update_config/${currentClusterId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: updatedYaml
+      })
+      .then(res => res.json())
+      .then(response => {
+        alert('YAML saved!');
+        cancelEdit();
+        // Reload the cluster UI with updated config
+        const activeTab = document.querySelector(`#tab-btn-${currentClusterId}`);
+        if (activeTab) {
+          openClusterTab({ currentTarget: activeTab }, currentClusterId);
+        }
+      })
+      .catch(err => {
+        alert('Failed to save YAML.');
+        console.error(err);
+      });
+    }
+
+    function saveAs() {
+      const newClusterYaml = document.getElementById(`jsonEditor-${currentClusterId}`).value;
+
+      const newClusterName = prompt("Enter a name for the new cluster:");
+      if (!newClusterName) return;
+
+      // Check if cluster name already exists in the tabs
+      const buttons = document.getElementsByClassName('tablink');
+      for (let btn of buttons) {
+        if (btn.textContent.trim() === newClusterName.trim()) {
+          alert("A cluster with that name already exists.");
+          return;
+        }
+      }
+
+      // Determine next cluster ID
+      let highestId = 0;
+      for (let btn of buttons) {
+        const idMatch = btn.id.match(/tab-btn-c(\d+)/);
+        if (idMatch && idMatch[1]) {
+          const num = parseInt(idMatch[1], 10);
+          if (num > highestId) highestId = num;
+        }
+      }
+      const newClusterId = `c${highestId + 1}`;
+
+      // Parse YAML and update cluster_name
+      try {
+        let parsed = jsyaml.load(newClusterYaml);
+        parsed.cluster_name = newClusterName;
+
+        const updatedYaml = jsyaml.dump(parsed);
+
+        fetch(`/update_config/${newClusterId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain' },
+          body: updatedYaml
+        })
+        .then(res => res.json())
+        .then(response => {
+          alert(`New cluster '${newClusterName}' saved as '${newClusterId}'!`);
+          location.reload();
+        })
+        .catch(err => {
+          alert('Failed to save new cluster configuration.');
+          console.error(err);
+        });
+
+      } catch (e) {
+        alert("Failed to parse current YAML. Save As aborted.");
+        console.error(e);
+      }
+    }
+
+    function toggleEditor() {
+      const section = document.getElementById(`yamlEditorSection-${currentClusterId}`);
+      const toggleBtn = document.getElementById(`editorToggleBtn-${currentClusterId}`);
+      const expanded = section.getAttribute('data-expanded') === 'true';
+
+      if (!expanded) {
+        section.style.height = section.scrollHeight + 'px';
+        section.style.paddingTop = '0px';
+        section.style.paddingBottom = '0px';
+        const icon = document.getElementById(`editorToggleIcon-${currentClusterId}`);
+        icon.classList.remove('fa-chevron-down');
+        icon.classList.add('fa-chevron-up');
+        section.setAttribute('data-expanded', 'true');
+      } else {
+        section.style.height = '0px';
+        section.style.paddingTop = '0';
+        section.style.paddingBottom = '0';
+        const icon = document.getElementById(`editorToggleIcon-${currentClusterId}`);
+        icon.classList.remove('fa-chevron-up');
+        icon.classList.add('fa-chevron-down');
+        section.setAttribute('data-expanded', 'false');
+      }
+    }
+    window.onload = function() {
+      const firstTab = document.querySelector(".tablink");
+      {% for cluster in clusters_info %}
+      fetch(`/get_status/{{ cluster.cluster_id }}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.running) {
+            const statusBanner = document.getElementById("statusBanner-{{ cluster.cluster_id }}");
+            const statusMessage = document.getElementById("statusMessage-{{ cluster.cluster_id }}");
+            if (statusBanner && statusMessage) {
+              statusBanner.style.display = 'block';
+              statusBanner.classList.remove('w3-border-yellow', 'w3-border-green', 'w3-border-red');
+              statusBanner.classList.add('w3-border-yellow');
+ 
+              const baseMessage = "Running job on {{ cluster.cluster_id }}";
+              statusMessage.textContent = baseMessage;
+ 
+              let dotCount = 0;
+              if (statusAnimationIntervals["{{ cluster.cluster_id }}"]) {
+                clearInterval(statusAnimationIntervals["{{ cluster.cluster_id }}"]);
+              }
+              statusAnimationIntervals["{{ cluster.cluster_id }}"] = setInterval(() => {
+                dotCount = (dotCount + 1) % 4;
+                statusMessage.textContent = baseMessage + '.'.repeat(dotCount);
+              }, 500);
+            }
+            const tabBtn = document.getElementById("tab-btn-{{ cluster.cluster_id }}");
+            if (tabBtn) tabBtn.classList.add("running");
+          }
+        })
+        .catch(err => {
+          console.error("Failed to fetch status for {{ cluster.cluster_id }}:", err);
+        });
+      {% endfor %}
+      if (firstTab) {
+        const firstClusterId = firstTab.id.replace("tab-btn-", "");
+        openClusterTab({ currentTarget: firstTab }, firstClusterId);
+      }
+
+    };
+  </script>
+</body>
+</html>
