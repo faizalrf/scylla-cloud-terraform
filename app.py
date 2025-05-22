@@ -5,6 +5,7 @@ import subprocess
 import os
 import threading
 from ruamel.yaml import YAML
+import json
 
 yaml = YAML()
 yaml.preserve_quotes = True  # Preserve quotes in YAML
@@ -80,7 +81,9 @@ def run_script(script_name, cluster_id):
         'scalein2': f"./scylla-cloud-operations.sh scalein2 {cluster_id}",
         'kilload': f"./scylla-cloud-operations.sh kilload {cluster_id}",
         'destroy': f"./scylla-cloud-operations.sh destroy {cluster_id}",
-    }   
+        'tailstress': f"./tail_loader_log.sh {cluster_id}",
+        'killtail': f"./kill_tail.sh {cluster_id}",
+    }
 
     command = commands.get(script_name)
     if not command:
@@ -109,18 +112,7 @@ def run_script(script_name, cluster_id):
 
 @app.route('/get_monitor_ip/<cluster_id>')
 def get_monitor_ip(cluster_id):
-    try:
-        monitor_file = f"{cluster_id}.monitor.sh"
-        with open(monitor_file, 'r') as f:
-            for line in f:
-                if line.startswith("url="):
-                    url = line.strip().split("=", 1)[1].strip('"').strip()
-                    if "://" in url:
-                        ip = url.split("://")[1].split(":")[0]
-                        return ip
-        return "0.0.0.0", 204
-    except FileNotFoundError:
-        return "0.0.0.0", 204
+    return "0.0.0.0", 204
 
 @app.route('/get_status/<cluster_id>')
 def get_status(cluster_id):

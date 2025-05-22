@@ -34,9 +34,10 @@
     #logOutput,
     [id^="logOutput-"] {
       font-family: 'Hack Nerd Font', 'Courier New', Courier, monospace !important;
-      font-size: 12px !important;
+      font-size: 13px !important;
       white-space: pre !important;
     }
+    
     .resizable {
       resize: both;
       overflow: auto;
@@ -219,6 +220,12 @@
               <button class="w3-button w3-small w3-theme-d1 w3-round w3-tight-margin larger-button-text" data-cmd="stresstest" onclick="runClusterCommand('stresstest')">
                 <i class="fa fa-tachometer w3-margin-right"></i>Stress Test
               </button>
+              <button class="w3-button w3-small w3-theme-d1 w3-round w3-tight-margin larger-button-text"
+                      id="tailToggleBtn-{{ cluster.cluster_id }}"
+                      data-cmd="tailstress"
+                      onclick="toggleTailStress()">
+                <i class="fa fa-terminal w3-margin-right"></i><span id="tailToggleLabel-{{ cluster.cluster_id }}">Tail Loader Log</span>
+              </button>
 
               <!-- Scaling -->
               {% if scale_nodes > 0 %}
@@ -250,13 +257,16 @@
           <div id="statusBanner-{{ cluster.cluster_id }}" class="w3-panel w3-theme-l4 w3-leftbar w3-text-dark-grey" style="display: none; margin-top: 7px;">
             <strong>Status:</strong> <span id="statusMessage-{{ cluster.cluster_id }}">Chilling...</span>
           </div>
-            <div id="logScrollWrapper-{{ cluster.cluster_id }}" class="logScrollWrapper resizable w3-container w3-theme-d5 w3-margin-top w3-theme-d4" style="height: 700px; overflow-y: auto; position: relative; padding: 10px;">
-            <div id="logOutput-{{ cluster.cluster_id }}" class="logOutput" style="white-space: pre-wrap; font-family: monospace;"></div>
+          <!-- Log and Tail Output, visually aligned in the same parent -->
+          <div>
+            <div id="logScrollWrapper-{{ cluster.cluster_id }}" class="logScrollWrapper resizable w3-container w3-theme-d5 w3-margin-top w3-theme-d4" style="height: 600px; overflow-y: auto; position: relative; padding: 10px;">
+              Logs:
+              <div id="logOutput-{{ cluster.cluster_id }}" class="logOutput" style="white-space: pre-wrap; font-family: monospace;"></div>
+            </div>
           </div>
-        </div>    
+        </div>
       </div>
       <!-- Monitoring Panel -->
-      
       <div id="monitorDashboard-{{ cluster.cluster_id }}" class="monitor-dashboard w3-container w3-theme-l4" style="display: none;">
         <h4>
           Scylla Monitoring Dashboard
@@ -352,6 +362,7 @@
         }
       }
     });
+
 
     function toggleMonitor(clusterId) {
       const section = document.getElementById(`monitorContent-${clusterId}`);
@@ -725,6 +736,35 @@
       }
 
     };
+    let tailingStatus = {}; // keeps track of tail state per cluster
+
+    function toggleTailStress() {
+      const clusterId = currentClusterId;
+      if (!clusterId) return;
+
+      const isTailing = tailingStatus[clusterId];
+      const btn = document.getElementById(`tailToggleBtn-${clusterId}`);
+      const label = document.getElementById(`tailToggleLabel-${clusterId}`);
+
+      const cmd = isTailing ? 'killtail' : 'tailstress';
+
+      fetch(`/run_script/${cmd}/${clusterId}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.status === 'started') {
+            tailingStatus[clusterId] = !isTailing;
+            label.textContent = isTailing ? 'Tail Loader Log' : 'Stop Tailing';
+            btn.classList.toggle('w3-highway-orange', !isTailing);
+            btn.classList.toggle('w3-theme-d1', isTailing);
+          } else {
+            alert(data.error || `Failed to ${cmd}`);
+          }
+        })
+        .catch(err => {
+          console.error(err);
+          alert("Command failed.");
+        });
+    }
   </script>
 </body>
 </html>
