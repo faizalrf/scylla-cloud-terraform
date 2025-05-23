@@ -8,6 +8,5 @@ variable "node_type" {}
 variable "scale_nodes" {}
 variable "scale_node_type" {}
 variable "loader_vpc_region" {}
-
 variable "path_to_key" {}
 variable "path_to_private_key" {}
