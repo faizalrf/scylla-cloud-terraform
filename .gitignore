@@ -27,3 +27,4 @@ terraform.auto.tfvars.json
 .DS_Store
 clusters
 current_tail_loader_ip*
+.vscode
