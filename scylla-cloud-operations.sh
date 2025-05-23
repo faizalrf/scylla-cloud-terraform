@@ -148,7 +148,7 @@ function run_loader_setup() {
 function run_status() {
     is_cluster_provisioned ${cluster_id}
     cd "${mydir}"
-    python get_details.py --cluster "${cluster_id}" --status
+    python get_details.py --cluster "${cluster_id}"
 }
 
 # Fetch cluster status from SC API

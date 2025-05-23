@@ -1,3 +1,13 @@
+def get_account_id(scylla_token):
+    response = requests.get(
+        "https://api.cloud.scylladb.com/account/default",
+        headers={
+            'Authorization': f'Bearer {scylla_token}',
+            'Trace-Id': 'account-fetch'
+        }
+    )
+    response.raise_for_status()
+    return response.json()["data"]["accountId"]
 import requests
 import json
 import yaml
@@ -35,7 +45,7 @@ def print_cluster_info_table(cluster_info):
 def get_node_details(cluster_id):
     config = load_cluster_config(cluster_id)
     scylla_token = config["scylla_api_token"]
-    account_id = config["scylla_account_id"]
+    account_id = get_account_id(scylla_token)
     tf_cluster_id = get_terraform_output(cluster_id)
     print("Scylla Cloud Cluster ID:", tf_cluster_id)
     if not tf_cluster_id:
@@ -93,15 +103,7 @@ if __name__ == "__main__":
                 return
 
             # Get account ID
-            account_resp = requests.get(
-                "https://api.cloud.scylladb.com/account/default",
-                headers={
-                    'Authorization': f'Bearer {scylla_token}',
-                    'Trace-Id': 'account-fetch'
-                }
-            )
-            account_resp.raise_for_status()
-            account_id = account_resp.json()["data"]["accountId"]
+            account_id = get_account_id(scylla_token)
 
             # Get progress details
             url = f"https://api.cloud.scylladb.com/account/{account_id}/cluster/{tf_cluster_id}/request"
