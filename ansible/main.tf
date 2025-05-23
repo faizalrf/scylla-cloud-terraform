@@ -1,3 +1,11 @@
+data "terraform_remote_state" "scylla_cloud" {
+  backend = "local"
+
+  config = {
+    path = "../terraform/terraform.tfstate"
+  }
+}
+
 provider "aws" {
   region = var.loader_vpc_region
 }
@@ -30,7 +38,7 @@ data "aws_ami" "scylla_ami" {
 resource "aws_security_group" "loader_sg" {
   name        = "loader-sg"
   description = "Allow outbound CQL and shard-aware access to Scylla Cloud"
-  vpc_id      = var.loader_vpc
+  vpc_id      = data.terraform_remote_state.scylla_cloud.outputs.loader_vpc_id
 
   ingress {
     from_port   = 22
@@ -63,12 +71,12 @@ resource "aws_security_group" "loader_sg" {
 data "aws_subnets" "loader_subnets" {
   filter {
     name   = "vpc-id"
-    values = [var.loader_vpc]
+    values = [data.terraform_remote_state.scylla_cloud.outputs.loader_vpc_id]
   }
 }
 
 resource "aws_key_pair" "loader_key" {
-  key_name   = "my-loader-key"
+  key_name   = "${var.scylla_cluster_name}-loader-key"
   public_key = file(var.path_to_key)
 }
 
@@ -82,7 +90,7 @@ resource "aws_instance" "loader" {
   key_name                      = aws_key_pair.loader_key.key_name
 
   tags = {
-    Name    = "loader-${count.index + 1}"
+    Name    = "${var.scylla_cluster_name}-loader-${count.index + 1}"
     Type    = "Loader"
     Region  = var.loader_vpc_region
   }

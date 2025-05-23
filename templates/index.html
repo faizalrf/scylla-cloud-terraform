@@ -137,7 +137,7 @@
       <button class="w3-bar-item w3-button tablink tab-btn"
               onclick="openClusterTab(event, '{{ cluster.cluster_id }}')"
               id="tab-btn-{{ cluster.cluster_id }}">
-        {{ cluster.cluster_name }}
+        [{{ cluster.cluster_id }}] {{ cluster.cluster_name }}
       </button>
     {% endfor %}
   </div>
@@ -209,6 +209,9 @@
               <button class="w3-button w3-small w3-blue w3-border w3-round w3-tight-margin larger-button-text" data-cmd="status" onclick="runClusterCommand('status')">
                 <i class="fa fa-line-chart w3-margin-right"></i>SC Cluster Status
               </button>
+              <button class="w3-button w3-small w3-blue w3-round w3-tight-margin larger-button-text" data-cmd="scalein" onclick="runClusterCommand('progress')">
+                <i class="fa fa-tasks w3-margin-right"></i>Progress Status
+              </button>
 
               <!-- Setup & Load -->
               <button class="w3-button w3-small w3-theme-d1 w3-round w3-tight-margin larger-button-text" data-cmd="setup" onclick="runClusterCommand('setup')">
@@ -223,7 +226,7 @@
               <button class="w3-button w3-small w3-theme-d1 w3-round w3-tight-margin larger-button-text"
                       id="tailToggleBtn-{{ cluster.cluster_id }}"
                       data-cmd="tailstress"
-                      onclick="toggleTailStress()">
+                      onclick="toggleTailStress(event)">
                 <i class="fa fa-terminal w3-margin-right"></i><span id="tailToggleLabel-{{ cluster.cluster_id }}">Tail Loader Log</span>
               </button>
 
@@ -234,15 +237,6 @@
                 </button>
                 <button class="w3-button w3-small w3-theme-d5 w3-round w3-tight-margin larger-button-text" data-cmd="scalein" onclick="runClusterCommand('scalein')">
                   <i class="fa fa-arrow-down w3-margin-right"></i>Scale-in from {{ scale_nodes }} x {{ scale_type }}
-                </button>
-              {% endif %}
-
-              {% if scale2_nodes > 0 %}
-                <button class="w3-button w3-small w3-theme-d5 w3-round w3-tight-margin larger-button-text" data-cmd="scaleout2" onclick="runClusterCommand('scaleout2')">
-                  <i class="fa fa-arrow-up w3-margin-right"></i>Scale-out to {{ scale2_nodes }} x {{ scale2_type }}
-                </button>
-                <button class="w3-button w3-small w3-theme-d5 w3-round w3-tight-margin larger-button-text" data-cmd="scalein2" onclick="runClusterCommand('scalein2')">
-                  <i class="fa fa-arrow-down w3-margin-right"></i>Scale-in from {{ scale2_nodes }} x {{ scale2_type }}
                 </button>
               {% endif %}
 
@@ -738,12 +732,12 @@
     };
     let tailingStatus = {}; // keeps track of tail state per cluster
 
-    function toggleTailStress() {
-      const clusterId = currentClusterId;
+    function toggleTailStress(event) {
+      const btn = event.currentTarget;
+      const clusterId = btn.id.replace('tailToggleBtn-', '');
       if (!clusterId) return;
 
       const isTailing = tailingStatus[clusterId];
-      const btn = document.getElementById(`tailToggleBtn-${clusterId}`);
       const label = document.getElementById(`tailToggleLabel-${clusterId}`);
 
       const cmd = isTailing ? 'killtail' : 'tailstress';

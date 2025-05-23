@@ -4,6 +4,7 @@ import yaml
 import subprocess
 from tabulate import tabulate
 import argparse
+from urllib.parse import urljoin
 
 
 def load_cluster_config(cluster_id):
@@ -76,8 +77,64 @@ def get_node_details(cluster_id):
     print(tabulate(table_data, headers=headers, tablefmt="fancy_grid"))
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Get node details for a Scylla cluster.")
+    parser = argparse.ArgumentParser(description="Get node or progress details for a Scylla cluster.")
     parser.add_argument("--cluster", required=True, help="Cluster ID to fetch details for.")
+    parser.add_argument("--progress", action="store_true", help="Fetch progress of current operations.")
     args = parser.parse_args()
 
-    get_node_details(args.cluster)
+    if args.progress:
+        def get_cluster_progress(cluster_id):
+            config = load_cluster_config(cluster_id)
+            scylla_token = config["scylla_api_token"]
+            tf_cluster_id = get_terraform_output(cluster_id)
+
+            if not tf_cluster_id:
+                print("No valid cluster ID from Terraform output.")
+                return
+
+            # Get account ID
+            account_resp = requests.get(
+                "https://api.cloud.scylladb.com/account/default",
+                headers={
+                    'Authorization': f'Bearer {scylla_token}',
+                    'Trace-Id': 'account-fetch'
+                }
+            )
+            account_resp.raise_for_status()
+            account_id = account_resp.json()["data"]["accountId"]
+
+            # Get progress details
+            url = f"https://api.cloud.scylladb.com/account/{account_id}/cluster/{tf_cluster_id}/request"
+            headers = {
+                'Authorization': f'Bearer {scylla_token}',
+                'Trace-Id': 'progress-fetch'
+            }
+
+            response = requests.get(url, headers=headers)
+            if response.status_code != 200:
+                print(f"Failed to get progress details. Status: {response.status_code}")
+                print("Response:", response.text)
+                return
+
+            data = response.json().get("data", [])
+            if not data:
+                print("No ongoing operations found.")
+                return
+
+            table_data = []
+            for item in data:
+                table_data.append([
+                    item.get("accountId"),
+                    item.get("clusterId"),
+                    item.get("progressDescription"),
+                    item.get("progressPercent"),
+                    item.get("requestType"),
+                    item.get("status"),
+                    item.get("userFriendlyError")
+                ])
+            headers = ["Account ID", "Cluster ID", "Progress Description", "Progress %", "Request Type", "Status", "Error"]
+            print(tabulate(table_data, headers=headers, tablefmt="fancy_grid"))
+
+        get_cluster_progress(args.cluster)
+    else:
+        get_node_details(args.cluster)

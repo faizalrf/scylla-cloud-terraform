@@ -67,6 +67,16 @@ def get_terraform_output(terraform_dir="."):
     finally:
         os.chdir(cwd)
 
+def get_account_id(api_token):
+    url = "https://api.cloud.scylladb.com/account/default"
+    headers = {
+        "Authorization": f"Bearer {api_token}",
+        "Trace-Id": "python-script"
+    }
+    response = requests.get(url, headers=headers)
+    response.raise_for_status()
+    return response.json()["data"]["accountId"]
+
 def main():
     parser = argparse.ArgumentParser(description="Scale Scylla Cloud cluster nodes")
     parser.add_argument("--cluster", required=True, help="Cluster ID to use for selecting terraform output folder")
@@ -93,7 +103,7 @@ def main():
 
     # Extract required values
     scylla_token = cluster_config["scylla_api_token"]
-    account_id = cluster_config["scylla_account_id"]
+    account_id = get_account_id(scylla_token)
     terraform_output = get_terraform_output(os.path.join("clusters", cluster_id, "terraform"))
     sc_cluster_id = terraform_output["scylladbcloud_cluster_id"]["value"]
     dc_id = get_dc_id(scylla_token, account_id, sc_cluster_id)
@@ -136,18 +146,19 @@ def main():
         'Trace-Id': 'python-script'
     }
 
-    response = requests.post(url, headers=headers, json=data, timeout=60)
+    response = requests.post(url, headers=headers, json=data, timeout=120)
 
-    print("Resize Request Submitted")
+    print(f"Cluster Resize Request Submitted")
+    print("---------------------------------")    
     if response.status_code == 200:
         resp_json = response.json().get("data", {})
-        print(f"  Status     : {resp_json.get('status')}")
-        print(f"  Request ID : {resp_json.get('id')}")
-        print(f"  Cluster ID : {resp_json.get('clusterId')}")
-        print(f"  Progress   : {resp_json.get('progressPercent')}%")
+        print(f"- Status     : {resp_json.get('status')}")
+        print(f"- Request ID : {resp_json.get('id')}")
+        print(f"- Cluster ID : {resp_json.get('clusterId')}")
+        print(f"- Progress   : {resp_json.get('progressPercent')}%")
     else:
-        print(f"  Status Code: {response.status_code}")
-        print(f"  Response   : {response.text}")
+        print(f"- Status Code: {response.status_code}")
+        print(f"- Response   : {response.text}")
 
 if __name__ == "__main__":
     main()

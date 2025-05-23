@@ -73,6 +73,7 @@ def run_script(script_name, cluster_id):
         'test': f"./scylla-cloud-operations.sh autotest {cluster_id}",
         'status': f"./scylla-cloud-operations.sh status {cluster_id}",
         'setup': f"./scylla-cloud-operations.sh setup {cluster_id}",
+        'progress': f"./scylla-cloud-operations.sh progress {cluster_id}",
         'initload': f"./scylla-cloud-operations.sh initload {cluster_id}",
         'stresstest': f"./scylla-cloud-operations.sh stresstest {cluster_id}",
         'scaleout': f"./scylla-cloud-operations.sh scaleout {cluster_id}",

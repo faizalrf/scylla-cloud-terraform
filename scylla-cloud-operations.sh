@@ -122,7 +122,7 @@ function run_setup() {
     echo "Generating tfvars for ${cluster_id}..."
     python generate_tfvars.py --cluster "${cluster_id}"
 
-    box_print "Running terraform for infrastructure provisioning..."
+    box_print "Running Scylla Cloud provisioning..."
     cd "${tf_dir}"
     terraform init
     terraform apply --auto-approve
@@ -134,10 +134,11 @@ function run_loader_setup() {
     is_cluster_provisioned ${cluster_id}
     sync_files
     cd "${tf_ans_dir}"
+    box_print "Running Scylla Loaders provisioning..." 
     terraform init
     terraform apply --auto-approve
     box_print "Waiting for 60 seconds for the cluster to stabilize..."
-    #sleep 60
+    sleep 60
     python generate_loader_nodes_scripts.py --cluster "${cluster_id}"
     box_print "Installing cassandra-stress on loader nodes..."
     ansible-playbook install_loader.yml --inventory inventory.ini -e "cluster_id=${cluster_id}"
@@ -147,8 +148,14 @@ function run_loader_setup() {
 function run_status() {
     is_cluster_provisioned ${cluster_id}
     cd "${mydir}"
-    python get_details.py --cluster "${cluster_id}"
+    python get_details.py --cluster "${cluster_id}" --status
+}
+
+# Fetch cluster status from SC API
+function run_progress_status() {
+    is_cluster_provisioned ${cluster_id}
     cd "${mydir}"
+    python get_details.py --cluster "${cluster_id}" --progress
 }
 
 # Initialize loader nodes using Ansible
@@ -204,10 +211,11 @@ function run_scalein() {
 # Destroy all infrastructure
 function run_destroy() {
     is_cluster_provisioned ${cluster_id}
-    box_print "Destroying infrastructure for cluster '${cluster_id}'..."
-    cd "${tf_dir}"
-    terraform destroy --auto-approve
+    box_print "Destroying Scylla Loaders '${cluster_id}'..."
     cd "${tf_ans_dir}"
+    terraform destroy --auto-approve
+    box_print "Destroying Scylla Cloud Cluster '${cluster_id}'..."
+    cd "${tf_dir}"
     terraform destroy --auto-approve
     box_print "Cleaning up cluster directory: ${cluster_dir}"
     rm -rf "${cluster_dir}"
@@ -234,6 +242,7 @@ case "$command" in
     setup) run_setup ;;
     loader_setup) run_loader_setup ;;
     status) run_status ;;
+    progress) run_progress_status ;;
     initload) run_initload ;;
     stresstest) run_stresstest ;;
     kilload) run_kilload ;;

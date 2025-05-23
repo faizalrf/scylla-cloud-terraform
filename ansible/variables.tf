@@ -1,8 +1,7 @@
 variable "cloud" {}
+variable "scylla_cluster_name" {}
 variable "scylla_version" {}
-variable "scylla_cidr" {}
 variable "loader_vpc_region" {}
-variable "loader_vpc" {}
 variable "loaders" {}
 variable "loaders_type" {}
 variable "key_name" {}
