@@ -84,50 +84,55 @@ brew install openssl readline sqlite3 xz zlib bzip2 git
 
 #### All Platforms (Common)
 
-Install pyenv:
+Install pyenv and pyenv-virtualenv:
 
 ```bash
 curl https://pyenv.run | bash
 ```
 
-Run the alias setup script:
+Add the following to your shell configuration (`~/.bashrc`, `~/.zshrc`, etc.):
 
 ```bash
-./setup-aliases.sh
-source ~/.bashrc  # or source ~/.zshrc etc
-```
-
-Check that your shell has the following:
-
-```bash
-alias clx="./scylla-automation-framework.sh"
-export PYENV_ROOT="$HOME/.pyenv"
-export PATH="$PYENV_ROOT/bin:$PATH"
+export PATH="$HOME/.pyenv/bin:$PATH"
 eval "$(pyenv init --path)"
 eval "$(pyenv init -)"
 eval "$(pyenv virtualenv-init -)"
-alias pyenv-set-312="pyenv activate myenv312"
 ```
 
-Install Python 3.12.x and create virtualenv:
+Restart your shell or source your shell config:
+
+```bash
+source ~/.bashrc  # or source ~/.zshrc
+```
+
+Install Python 3.12.x and create a virtual environment:
 
 ```bash
 pyenv install 3.12.10
-pyenv virtualenv 3.12.10 myenv312
-pyenv-set-312
+pyenv virtualenv 3.12.10 sc-env
 ```
 
-Check version:
+_**Note:** The name `sc-env` is just a matter of preference, you could name it anything such as `pyvenv312`, if you want to._
+
+Activate the virtual environment:
 
 ```bash
-python --version  # Should be Python 3.12.x
+pyenv activate sc-env
 ```
 
-Install requirements:
+Ensure the correct Python version is active:
 
 ```bash
-pip3 install -r requirements.txt
+python --version  # Should display Python 3.12.xx
 ```
+
+Install project dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+You are now ready to use the CLI or launch the web UI.
 
 ---
 
@@ -135,7 +140,7 @@ pip3 install -r requirements.txt
 
 #### AWS Authentication
 
-Install [gimme-aws-creds](https://github.com/Nike-Inc/gimme-aws-creds):
+[gimme-aws-creds](https://github.com/Nike-Inc/gimme-aws-creds) should already be installed when you executed `pip3 install -r requirements.txt` if not, then load up your python virtual environment
 
 ```bash
 pip3 install --upgrade gimme-aws-creds
@@ -226,11 +231,14 @@ _**Note:** Important to change the cluster_name to keep it unique between other 
 ./scylla-cloud-operations.sh setup tiny-cluster
 ```
 
-This will:
+**This will:**
 - Generate tfvars
-- Copy templates
-- Provision infrastructure on Scylla Cloud and loader VPC
+- Copy templates to cluster specific folders
+- Provision infrastructure on Scylla Cloud
+- Provision a new VPC with unique CIDR
+- Generate Route Tables
 - Peer VPCs
+- Provision Loader Instances on this VPC
 
 ### Loader Setup
 
@@ -274,12 +282,27 @@ A real-time web interface is available via `app.py` (Flask-based). It lets you:
 
 **Launch the app with:**
 
+Activate the Python Virtual Environment and Launch the Backend Server for the Framework using the `python -u app.py`.
+
 ```bash
-python -u app.py
+❯ python -u app.py
+ * Serving Flask app 'app'
+ * Debug mode: on
+WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on http://127.0.0.1:5000
+Press CTRL+C to quit
+ * Restarting with stat
+ * Debugger is active!
+ * Debugger PIN: 625-749-179
 ```
+
+Ignore the `WARNING`, Once you see `* Running on http://127.0.0.1:5000` messange, the backend is running successfully. Open up a browser window and go directly to `http://127.0.0.1:5000` and have fun :) 
+
+![alt text](gui.png)
 
 ### Notes
 
+- Use the GUI buttons to test connectivity, provision the cluster infrastructure, run stress test or initial data load, scale out and scale in, kill stress jobs and destroy the cluster.
 - CIDRs for Scylla Cloud and Loader VPCs are dynamically generated and isolated.
 - Logs and stress tests are streamed via WebSocket.
 - Tail logs are streamed from a random loader via SSH.

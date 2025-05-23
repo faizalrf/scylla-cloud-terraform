@@ -34,4 +34,5 @@ Flask>=3.0.3
 Flask-SocketIO>=5.4.1
 ruamel.yaml>=0.17.21
 scylla-driver>=3.26.9
+gimme-aws-creds
 paramiko
