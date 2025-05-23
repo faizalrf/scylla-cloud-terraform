@@ -218,6 +218,8 @@ clusters:
     ...
 ```
 
+_**Note:** Important to change the cluster_name to keep it unique between other users._
+
 ### Setup
 
 ```bash
