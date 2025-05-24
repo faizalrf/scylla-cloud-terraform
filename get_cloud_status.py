@@ -39,8 +39,8 @@ def main():
         
         if cluster_data:
             status = cluster_data.get("status", "UNKNOWN")
-            cluster_id = cluster_data.get("id")
-            summary = get_node_type_summary(api_token, account_id, cluster_id)
+            cs_cluster_id = cluster_data.get("id")
+            summary = get_node_type_summary(api_token, account_id, cs_cluster_id)
             node_summary = ", ".join([f"{k}: {v}" for k, v in summary.items()])
         else:
             status = "NOT PROVISIONED"

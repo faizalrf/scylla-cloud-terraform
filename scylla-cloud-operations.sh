@@ -137,8 +137,6 @@ function run_loader_setup() {
     box_print "Running Scylla Loaders provisioning..." 
     terraform init
     terraform apply --auto-approve
-    box_print "Waiting for 60 seconds for the cluster to stabilize..."
-    sleep 60
     python generate_loader_nodes_scripts.py --cluster "${cluster_id}"
     box_print "Installing cassandra-stress on loader nodes..."
     ansible-playbook install_loader.yml --inventory inventory.ini -e "cluster_id=${cluster_id}"
