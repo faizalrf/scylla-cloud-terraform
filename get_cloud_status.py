@@ -2,8 +2,8 @@ import yaml
 from prettytable import PrettyTable
 from scylla_api_lib import (
     fetch_clusters,
-    get_current_node_count,
-    get_account_id
+    get_account_id,
+    get_node_type_summary
 )
 
 def parse_variables_yml(filepath):
@@ -40,22 +40,23 @@ def main():
         if cluster_data:
             status = cluster_data.get("status", "UNKNOWN")
             cluster_id = cluster_data.get("id")
-            node_count = get_current_node_count(api_token, account_id, cluster_id)
+            summary = get_node_type_summary(api_token, account_id, cluster_id)
+            node_summary = ", ".join([f"{k}: {v}" for k, v in summary.items()])
         else:
             status = "NOT PROVISIONED"
-            node_count = 0
+            node_summary = ""
 
         all_clusters.append([
             cluster_id,
             cluster_name,
             scylla_version,
             cloud,
-            node_count,
+            node_summary,
             status
         ])
 
     table = PrettyTable()
-    table.field_names = ["Cluster ID", "Cluster Name", "Scylla Version", "Cloud", "Node Count", "Status"]
+    table.field_names = ["Cluster ID", "Cluster Name", "Scylla Version", "Cloud", "Node Summary", "Status"]
     for row in all_clusters:
         table.add_row(row)
     for field in table.field_names:

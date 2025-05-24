@@ -83,6 +83,7 @@ def get_node_details(api_token, tf_cluster_id):
         return None
     return response.json()
 
+
 def get_current_node_count(api_token, account_id, cluster_id):
     url = f"https://api.cloud.scylladb.com/account/{account_id}/cluster/{cluster_id}/nodes?enriched=true"
     headers = {
@@ -94,6 +95,26 @@ def get_current_node_count(api_token, account_id, cluster_id):
     data = response.json()
     nodes = data.get("data", {}).get("nodes", [])
     return len(nodes)
+
+# Function to summarize node types in a cluster
+def get_node_type_summary(api_token, account_id, cluster_id):
+    url = f"https://api.cloud.scylladb.com/account/{account_id}/cluster/{cluster_id}/nodes?enriched=true"
+    headers = {
+        "Authorization": f"Bearer {api_token}",
+        "Trace-Id": "python-script"
+    }
+    response = requests.get(url, headers=headers)
+    response.raise_for_status()
+    data = response.json().get("data", {})
+    nodes = data.get("nodes", [])
+
+    summary = {}
+    for node in nodes:
+        instance_type = node.get("instance", {}).get("externalId", "unknown")
+        summary[instance_type] = summary.get(instance_type, 0) + 1
+
+    summary["total"] = len(nodes)
+    return summary
 
 def resize_cluster(api_token, cluster_id, new_node_count, instance_type_id):
     account_id = get_account_id(api_token)
