@@ -1,58 +1,15 @@
-import requests
 import json
-import logging
-import http.client as http_client
 import yaml
 import subprocess
 import argparse
 import os
-
-# Function to fetch supported regions and instances from Scylla Cloud API
-def fetch_regions_and_instances(api_token):
-    cloud = 1  # AWS
-    url = f"https://api.cloud.scylladb.com/deployment/cloud-provider/{cloud}/regions?defaults=true"
-    headers = {
-        "Authorization": f"Bearer {api_token}"
-    }
-    response = requests.get(url, headers=headers)
-    response.raise_for_status()
-    return response.json().get("data", {})
-
-
-# Function to fetch the dcId from the VPC peering API
-def get_dc_id(api_token, account_id, cluster_id):
-    url = f"https://api.cloud.scylladb.com/account/{account_id}/cluster/{cluster_id}/network/vpc/peer"
-    headers = {
-        "Authorization": f"Bearer {api_token}",
-        "Trace-Id": "python-script"
-    }
-    response = requests.get(url, headers=headers)
-    response.raise_for_status()
-    data = response.json().get("data", [])
-    if not data:
-        raise ValueError("No VPC peering data found")
-    return data[0]["dcId"]
-
-# Function to validate instance type availability and return instance type ID
-def get_instance_type_id(api_token, target_instance_type):
-    data = fetch_regions_and_instances(api_token)
-    instances = data.get("instances", [])
-    for instance in instances:
-        if instance["externalId"] == target_instance_type:
-            return instance["id"]
-    return None
-
-def get_current_node_count(api_token, account_id, cluster_id):
-    url = f"https://api.cloud.scylladb.com/account/{account_id}/cluster/{cluster_id}/nodes?enriched=true"
-    headers = {
-        "Authorization": f"Bearer {api_token}",
-        "Trace-Id": "python-script"
-    }
-    response = requests.get(url, headers=headers)
-    response.raise_for_status()
-    data = response.json().get("data", {})
-    nodes = data.get("nodes", [])
-    return len(nodes)
+from scylla_api_lib import (
+    get_account_id,
+    get_dc_id,
+    get_current_node_count,
+    get_instance_type_id,
+    resize_cluster
+)
 
 def get_terraform_output(terraform_dir="."):
     try:
@@ -66,16 +23,6 @@ def get_terraform_output(terraform_dir="."):
         raise RuntimeError(f"Failed to parse terraform output JSON: {e}")
     finally:
         os.chdir(cwd)
-
-def get_account_id(api_token):
-    url = "https://api.cloud.scylladb.com/account/default"
-    headers = {
-        "Authorization": f"Bearer {api_token}",
-        "Trace-Id": "python-script"
-    }
-    response = requests.get(url, headers=headers)
-    response.raise_for_status()
-    return response.json()["data"]["accountId"]
 
 def main():
     parser = argparse.ArgumentParser(description="Scale Scylla Cloud cluster nodes")
@@ -127,26 +74,7 @@ def main():
     if instance_type_id is None:
         raise ValueError(f"Instance type ID not found for instance type '{region_config['scylla_scale_node_type']}'")
 
-    base_url = "https://api.cloud.scylladb.com"
-    url = f"{base_url}/account/{account_id}/cluster/{sc_cluster_id}/resize"
-
-    data = {
-        "dcNodes": [
-            {
-                "dcId": dc_id,
-                "wantedSize": new_node_count,
-                "instanceTypeId": instance_type_id
-            }
-        ]
-    }
-
-    headers = {
-        'Content-Type': 'application/json',
-        'Authorization': f'Bearer {scylla_token}',
-        'Trace-Id': 'python-script'
-    }
-
-    response = requests.post(url, headers=headers, json=data, timeout=120)
+    response = resize_cluster(scylla_token, sc_cluster_id, new_node_count, instance_type_id)
 
     print(f"Cluster Resize Request Submitted")
     print("---------------------------------")    

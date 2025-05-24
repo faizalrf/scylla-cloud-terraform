@@ -158,6 +158,13 @@ function run_progress_status() {
     python get_details.py --cluster "${cluster_id}" --progress
 }
 
+function run_cloud_status() {
+    cd "${mydir}"
+    box_print "Checking Scylla Cloud status..."
+    python get_cloud_status.py
+    cd "${mydir}"
+}
+
 # Initialize loader nodes using Ansible
 function run_initload() {
     is_cluster_provisioned ${cluster_id}
@@ -242,6 +249,7 @@ case "$command" in
     setup) run_setup ;;
     loader_setup) run_loader_setup ;;
     status) run_status ;;
+    cloudstatus) run_cloud_status ;;
     progress) run_progress_status ;;
     initload) run_initload ;;
     stresstest) run_stresstest ;;

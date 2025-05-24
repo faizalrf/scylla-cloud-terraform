@@ -205,13 +205,19 @@
             <div class="w3-bar w3-padding-small">
               <!-- Passive info -->
               <button class="w3-button w3-small w3-blue w3-border w3-round w3-tight-margin larger-button-text" data-cmd="test" onclick="runClusterCommand('test')">
-                <i class="fa fa-info-circle w3-margin-right"></i>Test Connectivity
+                <i class="fa fa-info-circle w3-margin-right"></i>Scylla Version
+              </button>
+              <button class="w3-button w3-small w3-blue w3-round w3-tight-margin larger-button-text" data-cmd="cloudstatus" onclick="runClusterCommand('cloudstatus')">
+                <i class="fa fa-dashboard w3-margin-right"></i>Cloud Status
               </button>
               <button class="w3-button w3-small w3-blue w3-border w3-round w3-tight-margin larger-button-text" data-cmd="status" onclick="runClusterCommand('status')">
-                <i class="fa fa-line-chart w3-margin-right"></i>SC Cluster Status
+                <i class="fa fa-line-chart w3-margin-right"></i>Node Status
               </button>
-              <button class="w3-button w3-small w3-blue w3-round w3-tight-margin larger-button-text" data-cmd="scalein" onclick="runClusterCommand('progress')">
-                <i class="fa fa-tasks w3-margin-right"></i>Progress Status
+              <button class="w3-button w3-small w3-blue w3-border w3-round w3-tight-margin larger-button-text"
+                      data-cmd="scalein"
+                      onclick="toggleProgressStatus(event)"
+                      id="progressToggleBtn-{{ cluster.cluster_id }}">
+                <i class="fa fa-tasks w3-margin-right"></i><span id="progressToggleLabel-{{ cluster.cluster_id }}">Progress Status</span>
               </button>
 
               <!-- Setup & Load -->
@@ -760,6 +766,31 @@
           alert("Command failed.");
         });
     }
+    // --- Progress Status Toggle ---
+    let progressIntervals = {};
+
+    function toggleProgressStatus(event) {
+      const btn = event.currentTarget;
+      const clusterId = btn.id.replace("progressToggleBtn-", "");
+      const label = document.getElementById(`progressToggleLabel-${clusterId}`);
+
+      const isRunning = !!progressIntervals[clusterId];
+
+      if (isRunning) {
+        clearInterval(progressIntervals[clusterId]);
+        delete progressIntervals[clusterId];
+        label.textContent = "Progress Status";
+        btn.classList.remove("w3-highway-orange");
+        btn.classList.add("w3-blue");
+      } else {
+        const runProgress = () => runClusterCommand("progress");
+        runProgress(); // Run immediately
+        progressIntervals[clusterId] = setInterval(runProgress, 5000);
+        label.textContent = "Stop Progress";
+        btn.classList.remove("w3-blue");
+        btn.classList.add("w3-highway-orange");
+      }
+    }    
   </script>
 </body>
 </html>

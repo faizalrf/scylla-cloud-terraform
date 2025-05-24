@@ -28,3 +28,4 @@ terraform.auto.tfvars.json
 clusters
 current_tail_loader_ip*
 .vscode
+__*

@@ -36,3 +36,4 @@ ruamel.yaml>=0.17.21
 scylla-driver>=3.26.9
 gimme-aws-creds
 paramiko
+prettytable
