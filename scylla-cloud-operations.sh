@@ -147,6 +147,7 @@ function run_loader_setup() {
 # Fetch cluster status from SC API
 function run_status() {
     is_cluster_provisioned ${cluster_id}
+    box_print "Running Scylla Cloud Status..."
     cd "${mydir}"
     python get_details.py --cluster "${cluster_id}"
 }
@@ -154,13 +155,14 @@ function run_status() {
 # Fetch cluster status from SC API
 function run_progress_status() {
     is_cluster_provisioned ${cluster_id}
+    box_print "Fetching Scylla Cloud Progress Data...";     
     cd "${mydir}"
     python get_details.py --cluster "${cluster_id}" --progress
 }
 
 function run_cloud_status() {
     cd "${mydir}"
-    box_print "Checking Scylla Cloud status..."
+    box_print "Checking Scylla Cloud Status..."
     python get_cloud_status.py
     cd "${mydir}"
 }

@@ -786,7 +786,7 @@
         const runProgress = () => runClusterCommand("progress");
         runProgress(); // Run immediately
         progressIntervals[clusterId] = setInterval(runProgress, 5000);
-        label.textContent = "Stop Progress";
+        label.textContent = "Stop Progress Update";
         btn.classList.remove("w3-blue");
         btn.classList.add("w3-highway-orange");
       }
