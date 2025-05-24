@@ -13,13 +13,17 @@ def parse_variables_yml(filepath):
 def main():
     config = parse_variables_yml("variables.yml")
     all_clusters = []
+    api_token = None
+    for _, cluster_config in config.items():
+        api_token = cluster_config.get("scylla_api_token")
+        if api_token:
+            break
 
+    account_id = get_account_id(api_token)
     for cluster_id, data in config.items():
-        api_token = data.get("scylla_api_token")
         if not api_token:
             print(f"No API token found for cluster {cluster_id}, skipping.")
             continue
-
         try:
             clusters = fetch_clusters(api_token)
             cluster_lookup = {c['clusterName']: c for c in clusters}
@@ -32,11 +36,11 @@ def main():
         cloud = data.get("cloud")
 
         cluster_data = cluster_lookup.get(cluster_name)
-        cluster_id = cluster_data.get("id")
         
         if cluster_data:
             status = cluster_data.get("status", "UNKNOWN")
-            node_count = get_current_node_count(api_token, get_account_id(api_token), cluster_id)
+            cluster_id = cluster_data.get("id")
+            node_count = get_current_node_count(api_token, account_id, cluster_id)
         else:
             status = "NOT PROVISIONED"
             node_count = 0
@@ -58,7 +62,6 @@ def main():
         table.align[field] = "l"
 
     print(table)
-
 
 if __name__ == "__main__":
     main()
