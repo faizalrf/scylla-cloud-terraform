@@ -1,7 +1,9 @@
 import yaml
 from prettytable import PrettyTable
 from scylla_api_lib import (
-    fetch_clusters
+    fetch_clusters,
+    get_current_node_count,
+    get_account_id
 )
 
 def parse_variables_yml(filepath):
@@ -30,9 +32,11 @@ def main():
         cloud = data.get("cloud")
 
         cluster_data = cluster_lookup.get(cluster_name)
+        cluster_id = cluster_data.get("id")
+        
         if cluster_data:
             status = cluster_data.get("status", "UNKNOWN")
-            node_count = cluster_data.get("dcCount", 0)
+            node_count = get_current_node_count(api_token, get_account_id(api_token), cluster_id)
         else:
             status = "NOT PROVISIONED"
             node_count = 0

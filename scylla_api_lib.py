@@ -91,8 +91,8 @@ def get_current_node_count(api_token, account_id, cluster_id):
     }
     response = requests.get(url, headers=headers)
     response.raise_for_status()
-    data = response.json().get("data", {})
-    nodes = data.get("nodes", [])
+    data = response.json()
+    nodes = data.get("data", {}).get("nodes", [])
     return len(nodes)
 
 def resize_cluster(api_token, cluster_id, new_node_count, instance_type_id):
